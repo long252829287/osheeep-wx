@@ -46,7 +46,7 @@
 - Consumes: existing `users(id)`, `dinner_households(id)`, `dinner_household_members(user_id, household_id)`.
 - Produces: Mapper interfaces plus `DinnerMenuMapper.selectByHouseholdAndDateForUpdate(Long, LocalDate)`.
 
-- [ ] **Step 1: Write the failing persistence contract test**
+- [x] **Step 1: Write the failing persistence contract test**
 
 ```java
 @Test
@@ -63,13 +63,13 @@ void menuEntitiesExposeVersionAndUniqueBusinessIdentity() {
 }
 ```
 
-- [ ] **Step 2: Run the test and confirm missing types**
+- [x] **Step 2: Run the test and confirm missing types**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerMenuPersistenceContractTest test`
 
 Expected: FAIL because `DinnerMenuEntity` and `DinnerMenuMapper` do not exist.
 
-- [ ] **Step 3: Create V4 migration with exact constraints and seeds**
+- [x] **Step 3: Create V4 migration with exact constraints and seeds**
 
 ```sql
 CREATE TABLE dinner_recipes (
@@ -180,7 +180,7 @@ VALUES
     ('SYSTEM', '青椒土豆丝', '/assets/recipes/pepper-potato.jpg', '家常菜', '清爽', 12);
 ```
 
-- [ ] **Step 4: Implement entities and mappers**
+- [x] **Step 4: Implement entities and mappers**
 
 ```java
 @Mapper
@@ -196,13 +196,13 @@ public interface DinnerMenuMapper extends BaseMapper<DinnerMenuEntity> {
 
 All entities use `@TableName`, `@TableId(type = IdType.AUTO)`, Java `LocalDate`/`LocalDateTime`, and ordinary getters/setters matching existing entities.
 
-- [ ] **Step 5: Verify the persistence layer**
+- [x] **Step 5: Verify the persistence layer**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerMenuPersistenceContractTest test`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```bash
 cd ../osheeep-server
@@ -226,7 +226,7 @@ git commit -m "feat: add dinner menu persistence"
 - Consumes: Task 1 mappers and existing household/member mappers.
 - Produces: `BusinessDateResolver.resolve(String timezone, Instant now)`, `DinnerRecipeService.listSystemRecipes()`, `DinnerMenuService.today(Long userId)`.
 
-- [ ] **Step 1: Write failing business-date tests**
+- [x] **Step 1: Write failing business-date tests**
 
 ```java
 @ParameterizedTest
@@ -240,13 +240,13 @@ void shanghaiBusinessDayChangesAtFourAm(String instant, String expected) {
 }
 ```
 
-- [ ] **Step 2: Run the test and confirm resolver is missing**
+- [x] **Step 2: Run the test and confirm resolver is missing**
 
 Run: `cd ../osheeep-server && mvn -Dtest=BusinessDateResolverTest test`
 
 Expected: FAIL because `BusinessDateResolver` does not exist.
 
-- [ ] **Step 3: Implement the resolver**
+- [x] **Step 3: Implement the resolver**
 
 ```java
 public LocalDate resolve(String timezone, Instant now) {
@@ -256,7 +256,7 @@ public LocalDate resolve(String timezone, Instant now) {
 }
 ```
 
-- [ ] **Step 4: Write failing menu merge tests**
+- [x] **Step 4: Write failing menu merge tests**
 
 ```java
 @Test
@@ -274,7 +274,7 @@ void todayMergesSelectionsRelativeToCurrentUser() {
 }
 ```
 
-- [ ] **Step 5: Implement recipe listing and today response**
+- [x] **Step 5: Implement recipe listing and today response**
 
 `today` must find the authenticated user's membership, load the household timezone, resolve the business date, create a `DRAFT` menu if the unique business row is absent, and map selections relative to the current user. A concurrent create catches `DuplicateKeyException` and reloads the existing row.
 
@@ -287,13 +287,13 @@ public record TodayMenuResponse(
         Instant completedAt, Long recordId) {}
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `cd ../osheeep-server && mvn -Dtest=BusinessDateResolverTest,DinnerMenuServiceTest test`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 ```bash
 git add src/main/java/com/osheeep/server/dinner src/test/java/com/osheeep/server/dinner/menu
@@ -303,8 +303,6 @@ git commit -m "feat: read merged dinner menu"
 ### Task 3: 批量选择、版本冲突与确认状态机
 
 **Files:**
-- Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/dto/UpdateSelectionsRequest.java`
-- Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/dto/MenuActionRequest.java`
 - Modify: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/DinnerMenuService.java`
 - Modify: `../osheeep-server/src/main/java/com/osheeep/server/common/error/ErrorCode.java`
 - Test: `../osheeep-server/src/test/java/com/osheeep/server/dinner/menu/DinnerMenuServiceTest.java`
@@ -313,7 +311,7 @@ git commit -m "feat: read merged dinner menu"
 - Consumes: Task 2 `today` response and Task 1 `selectByHouseholdAndDateForUpdate`.
 - Produces: `updateSelections(Long,List<Long>,long)` and `confirm(Long,long,String)`.
 
-- [ ] **Step 1: Add failing selection/state tests**
+- [x] **Step 1: Add failing selection/state tests**
 
 ```java
 @Test
@@ -339,13 +337,13 @@ void staleVersionDoesNotReplaceSelections() {
 }
 ```
 
-- [ ] **Step 2: Run tests and observe missing methods/error codes**
+- [x] **Step 2: Run tests and observe missing methods/error codes**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerMenuServiceTest test`
 
 Expected: FAIL at compilation.
 
-- [ ] **Step 3: Implement transactional replacement**
+- [x] **Step 3: Implement transactional replacement**
 
 Inside one transaction: lock today's menu, compare versions, validate every ID is an active system recipe, delete only the current user's old selections, insert the requested unique IDs, reset confirmed fields when the set changed, and increment version once.
 
@@ -358,17 +356,17 @@ if ("COMPLETED".equals(menu.getStatus())) {
 }
 ```
 
-- [ ] **Step 4: Implement idempotent confirmation**
+- [x] **Step 4: Implement idempotent confirmation**
 
 Confirmation locks the menu, returns without mutation when `idempotency_key` already exists, rejects empty merged selections, compares version, sets `CONFIRMED`, actor/time, increments version, and inserts a `CONFIRM` action row.
 
-- [ ] **Step 5: Run state tests**
+- [x] **Step 5: Run state tests**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerMenuServiceTest test`
 
 Expected: PASS for empty menu, version conflict, confirmation, duplicate key and confirmed-to-draft cases.
 
-- [ ] **Step 6: Commit Task 3**
+- [x] **Step 6: Commit Task 3**
 
 ```bash
 git add src/main/java/com/osheeep/server/dinner/menu src/main/java/com/osheeep/server/common/error/ErrorCode.java src/test/java/com/osheeep/server/dinner/menu/DinnerMenuServiceTest.java
@@ -379,6 +377,8 @@ git commit -m "feat: update and confirm dinner menu"
 
 **Files:**
 - Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/record/DinnerRecordService.java`
+- Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/dto/UpdateSelectionsRequest.java`
+- Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/dto/MenuActionRequest.java`
 - Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/record/dto/RecordSummaryResponse.java`
 - Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/record/dto/RecordDetailResponse.java`
 - Create: `../osheeep-server/src/main/java/com/osheeep/server/dinner/menu/DinnerMenuController.java`
@@ -393,7 +393,7 @@ git commit -m "feat: update and confirm dinner menu"
 - Consumes: confirmed menu and snapshot mappers.
 - Produces: the seven approved HTTP endpoints and `complete(Long,long,String)` returning `recordId` plus latest menu.
 
-- [ ] **Step 1: Write failing completion idempotency test**
+- [x] **Step 1: Write failing completion idempotency test**
 
 ```java
 @Test
@@ -408,17 +408,17 @@ void repeatedCompleteReturnsTheExistingRecord() {
 }
 ```
 
-- [ ] **Step 2: Run focused tests and confirm missing record service**
+- [x] **Step 2: Run focused tests and confirm missing record service**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerRecordServiceTest test`
 
 Expected: FAIL at compilation.
 
-- [ ] **Step 3: Implement completion and snapshot transaction**
+- [x] **Step 3: Implement completion and snapshot transaction**
 
 Require `CONFIRMED`, lock the menu, check version, reuse an existing record by unique `menu_id`, otherwise insert the record and one snapshot per merged dish, update menu to `COMPLETED`, increment version and insert a `COMPLETE` action. Catch concurrent record `DuplicateKeyException` and reload the winner.
 
-- [ ] **Step 4: Write failing controller contract tests**
+- [x] **Step 4: Write failing controller contract tests**
 
 ```java
 mockMvc.perform(authenticated(put("/api/dinner/menus/today/selections"))
@@ -434,17 +434,17 @@ mockMvc.perform(authenticated(post("/api/dinner/menus/today/complete"))
     .andExpect(jsonPath("$.data.recordId").value(91));
 ```
 
-- [ ] **Step 5: Implement controllers and API contract**
+- [x] **Step 5: Implement controllers and API contract**
 
 Controllers read `CurrentUser.id()` exclusively, validate nonnegative version and nonblank idempotency key, and wrap results in `ApiResponse.ok`. Record service validates the requesting user still belongs to the record's household.
 
-- [ ] **Step 6: Run the full backend suite**
+- [x] **Step 6: Run the full backend suite**
 
 Run: `cd ../osheeep-server && mvn test`
 
 Expected: BUILD SUCCESS, existing 55 tests plus all new tests pass.
 
-- [ ] **Step 7: Commit Task 4**
+- [x] **Step 7: Commit Task 4**
 
 ```bash
 git add src/main/java src/test/java docs/api-contract.md
@@ -469,7 +469,7 @@ git commit -m "feat: complete dinner menu and records"
 - Consumes: existing request client.
 - Produces: App methods `getRecipes`, `getTodayMenu`, `saveSelections`, `confirmTodayMenu`, `completeTodayMenu`, `getRecords`, `getRecord`; pure `createIdempotencyKey()` and action-state helpers.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 ```ts
 await service.saveSelections([1, 2], 4);
@@ -485,13 +485,13 @@ expect(request).toHaveBeenCalledWith('/api/dinner/menus/today/confirm', {
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm modules are missing**
+- [x] **Step 2: Run tests and confirm modules are missing**
 
 Run: `npm test -- menu-service.test.ts menu-state.test.ts`
 
 Expected: FAIL because the modules do not exist.
 
-- [ ] **Step 3: Implement exact client types and services**
+- [x] **Step 3: Implement exact client types and services**
 
 ```ts
 export interface TodayMenu {
@@ -514,7 +514,7 @@ export interface TodayMenu {
 
 `createIdempotencyKey` uses `wx.getRandomValues` when available and a timestamp/random fallback that still returns UUID-v4 shape; the key is created once per button attempt and retained until that request resolves or fails definitively.
 
-- [ ] **Step 4: Register App methods and verify**
+- [x] **Step 4: Register App methods and verify**
 
 Run: `npm test -- menu-service.test.ts menu-state.test.ts && npm run typecheck`
 

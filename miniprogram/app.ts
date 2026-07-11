@@ -1,6 +1,9 @@
 import { runtimeConfig } from './config/environment';
 import { createAuthService, type LoginPort } from './services/auth-service';
 import { createHouseholdService } from './services/household-service';
+import { createMenuService } from './services/menu-service';
+import { createRecipeService } from './services/recipe-service';
+import { createRecordService } from './services/record-service';
 import { createRequestClient, type RequestPort } from './services/request';
 import { sessionStore } from './state/session';
 
@@ -50,6 +53,9 @@ const authService = createAuthService({
 const householdService = createHouseholdService({
   request: requestClient.request,
 });
+const menuService = createMenuService({ request: requestClient.request });
+const recipeService = createRecipeService({ request: requestClient.request });
+const recordService = createRecordService({ request: requestClient.request });
 
 App({
   loginWithWechat: async () => {
@@ -59,4 +65,11 @@ App({
   createHousehold: householdService.create,
   refreshInviteCode: householdService.refreshInviteCode,
   joinHousehold: householdService.join,
+  getRecipes: recipeService.list,
+  getTodayMenu: menuService.getToday,
+  saveSelections: menuService.saveSelections,
+  confirmTodayMenu: menuService.confirm,
+  completeTodayMenu: menuService.complete,
+  getRecords: recordService.list,
+  getRecord: recordService.detail,
 });

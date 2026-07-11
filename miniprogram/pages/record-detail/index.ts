@@ -28,8 +28,8 @@ Page({
     }
   },
 
-  onRepeatMeal() {
-    wx.reLaunch({ url: '/pages/recipes/index' });
+  onBackToTonight() {
+    wx.reLaunch({ url: '/pages/tonight/index' });
   },
 
   onBackToRecords() {

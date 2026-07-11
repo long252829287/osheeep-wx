@@ -25,7 +25,7 @@
           <text wx:if="{{item.source === 'BOTH'}}" class="consensus-label">共同选择</text>
         </view>
       </view>
-      <button class="primary-button" bindtap="onRepeatMeal">再次做这顿</button>
+      <button class="primary-button" bindtap="onBackToTonight">回到今晚菜单</button>
       <button class="secondary-button" bindtap="onBackToRecords">返回做饭记录</button>
       <text class="record-note">菜谱后续修改不会影响这条记录</text>
     </view>

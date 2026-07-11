@@ -10,6 +10,7 @@
     <text>{{conflictMessage}}</text>
   </view>
   <view wx:if="{{errorMessage}}" class="error-banner">{{errorMessage}}</view>
+  <view wx:if="{{completed}}" class="completed-banner">今晚的菜单已经完成，明天再来选菜</view>
 
   <view wx:if="{{loading}}" class="status-state">正在准备菜谱…</view>
   <view wx:else class="recipe-grid">
@@ -25,6 +26,6 @@
 </view>
 
 <view wx:if="{{!loading}}" class="save-area">
-  <button class="save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="onSaveSelections">保存我的选择 · {{selectedCount}} 道</button>
+  <button class="save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="onSaveSelections">{{completed ? '返回今晚菜单' : '保存我的选择 · ' + selectedCount + ' 道'}}</button>
 </view>
 <bottom-nav active="recipes" />

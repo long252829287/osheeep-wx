@@ -22,6 +22,7 @@ Page({
     recipes: [] as RecipeView[],
     selectedCount: 0,
     saving: false,
+    completed: false,
     errorMessage: '',
     conflictMessage: '',
   },
@@ -42,6 +43,7 @@ Page({
           selected: selectedIds.has(recipe.id),
         })),
         selectedCount: selectedIds.size,
+        completed: menu.status === 'COMPLETED',
       });
     } catch (error) {
       this.setData({ errorMessage: this.getErrorMessage(error) });
@@ -51,6 +53,7 @@ Page({
   },
 
   onToggleRecipe(event: WechatMiniprogram.TouchEvent) {
+    if (this.data.completed) return;
     const recipeId = Number(event.currentTarget.dataset.id);
     if (selectedIds.has(recipeId)) selectedIds.delete(recipeId);
     else selectedIds.add(recipeId);
@@ -65,6 +68,10 @@ Page({
   },
 
   async onSaveSelections() {
+    if (this.data.completed) {
+      wx.reLaunch({ url: '/pages/tonight/index' });
+      return;
+    }
     if (this.data.saving) return;
     this.setData({ saving: true, errorMessage: '' });
     try {

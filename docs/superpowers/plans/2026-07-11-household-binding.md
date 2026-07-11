@@ -332,7 +332,7 @@ Expected: Flyway schema 迁移到 v3，`/actuator/health` 返回 `UP`。
 
 登录后进入创建页，创建默认家庭，复制邀请码。确认页面显示 24 小时有效且后端日志不出现邀请码明文。
 
-- [ ] **Step 3: 第二测试账号完成加入**
+- [x] **Step 3: 第二测试账号完成加入**
 
 粘贴邀请码加入，确认双方 `GET /api/dinner/household` 返回相同家庭 id 和 `memberCount=2`。再次使用该邀请码的第三用户必须得到 `DINNER_HOUSEHOLD_FULL`。
 

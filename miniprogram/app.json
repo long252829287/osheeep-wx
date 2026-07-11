@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/onboarding/index"],
+  "window": {
+    "navigationBarTitleText": "今晚吃什么",
+    "navigationBarBackgroundColor": "#FFF8EE",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#FFF8EE"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

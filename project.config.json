@@ -1,0 +1,12 @@
+{
+  "appid": "touristappid",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "osheeep-wx",
+  "setting": {
+    "compileHotReLoad": true,
+    "enhance": true,
+    "es6": true,
+    "useCompilerPlugins": ["typescript"]
+  }
+}

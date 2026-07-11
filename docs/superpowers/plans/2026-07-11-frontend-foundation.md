@@ -35,7 +35,7 @@
 - Consumes: Node.js 22 和 npm 11。
 - Produces: `npm test`、`npm run typecheck`、`npm run lint`、`npm run format:check`；微信开发者工具从 `miniprogram/` 读取源码。
 
-- [ ] **Step 1: 写失败的工程结构测试**
+- [x] **Step 1: 写失败的工程结构测试**
 
 ```ts
 import { existsSync, readFileSync } from 'node:fs';
@@ -50,13 +50,13 @@ test('declares the native mini program source directory', () => {
 });
 ```
 
-- [ ] **Step 2: 安装依赖并运行测试，确认因 `miniprogram/app.json` 不存在而失败**
+- [x] **Step 2: 安装依赖并运行测试，确认因 `miniprogram/app.json` 不存在而失败**
 
 Run: `npm install && npm test -- tests/project-structure.test.ts --runInBand`
 
 Expected: FAIL，断言 `existsSync(.../miniprogram/app.json)` 收到 `false`。
 
-- [ ] **Step 3: 写最小工具链配置**
+- [x] **Step 3: 写最小工具链配置**
 
 ```json
 {
@@ -66,7 +66,7 @@ Expected: FAIL，断言 `existsSync(.../miniprogram/app.json)` 收到 `false`。
   "scripts": {
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint miniprogram tests",
+    "lint": "eslint \"miniprogram/**/*.ts\" \"tests/**/*.ts\" --no-error-on-unmatched-pattern",
     "format:check": "prettier --check \"**/*.{ts,json,md}\""
   },
   "devDependencies": {
@@ -122,7 +122,7 @@ export default tseslint.config(
 
 `.prettierrc.json` 使用 `{ "singleQuote": true, "trailingComma": "all" }`；`project.config.json` 设置 `miniprogramRoot: "miniprogram/"`、`compileType: "miniprogram"`、`appid: "touristappid"` 和 TypeScript 编译插件；`.gitignore` 忽略 `node_modules/`、`coverage/`、`miniprogram_npm/`、`project.private.config.json`。
 
-- [ ] **Step 4: 创建最小 `miniprogram/app.json` 并验证工程契约**
+- [x] **Step 4: 创建最小 `miniprogram/app.json` 并验证工程契约**
 
 ```json
 {
@@ -142,7 +142,7 @@ Run: `npm test -- tests/project-structure.test.ts --runInBand`
 
 Expected: PASS，1 test passed。
 
-- [ ] **Step 5: 提交工程工具链**
+- [x] **Step 5: 提交工程工具链**
 
 ```bash
 git add .gitignore package.json package-lock.json tsconfig.json jest.config.cjs eslint.config.mjs .prettierrc.json project.config.json tests/project-structure.test.ts miniprogram/app.json

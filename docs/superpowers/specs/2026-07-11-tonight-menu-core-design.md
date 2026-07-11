@@ -1,8 +1,11 @@
 # 今晚菜单核心闭环设计规格
 
-**状态：** 待用户书面复核  
-**日期：** 2026-07-11  
-**需求基线：** [Notion PRD v1.1](https://app.notion.com/p/399bfe9d065181698643c3fac5463c43)  
+**状态：** 已批准
+
+**日期：** 2026-07-11
+
+**需求基线：** [Notion PRD v1.1](https://app.notion.com/p/399bfe9d065181698643c3fac5463c43)
+
 **视觉基线：** `docs/design/tonight-menu-*.png`、`docs/design/cooking-record-detail.png`
 
 ## 1. 目标

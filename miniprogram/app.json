@@ -1,5 +1,10 @@
 {
-  "pages": ["pages/onboarding/index"],
+  "pages": [
+    "pages/onboarding/index",
+    "pages/household-create/index",
+    "pages/household-join/index",
+    "pages/tonight/index"
+  ],
   "window": {
     "navigationBarTitleText": "今晚吃什么",
     "navigationBarBackgroundColor": "#FFF8EE",

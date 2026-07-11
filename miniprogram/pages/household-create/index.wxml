@@ -1,0 +1,43 @@
+<view class="household-page">
+  <view wx:if="{{state === 'loading'}}" class="loading-state">正在读取小家信息…</view>
+
+  <block wx:elif="{{state === 'created'}}">
+    <view class="success-mark"><icon type="success" size="56" color="#7B823B" /></view>
+    <text class="success-title">小家创建成功</text>
+    <text class="household-name">{{householdName}}</text>
+
+    <view class="invite-card">
+      <text class="invite-label">邀请码</text>
+      <text class="invite-code">{{inviteCode}}</text>
+      <text class="invite-note">24 小时内有效 · 最多加入 1 人</text>
+      <button class="secondary-button" bindtap="onCopyInvite">复制邀请码</button>
+      <button class="primary-button" open-type="share">微信邀请 TA</button>
+    </view>
+
+    <view class="steps">
+      <view class="step"><text class="step-number">1</text><text>TA 打开小程序</text></view>
+      <view class="step"><text class="step-number">2</text><text>输入邀请码</text></view>
+      <view class="step"><text class="step-number">3</text><text>加入后一起选菜</text></view>
+    </view>
+    <button class="text-button" bindtap="onEnterTonight">暂时跳过，先进入今晚菜单</button>
+  </block>
+
+  <block wx:else>
+    <view class="intro">
+      <text class="eyebrow">双人协商桌</text>
+      <text class="intro-title">{{state === 'existing' ? '邀请 TA 加入小家' : '创建我们的小家'}}</text>
+      <text class="intro-copy">{{state === 'existing' ? '生成一个新的 24 小时邀请码' : '建立只属于你们两个人的今晚菜单空间'}}</text>
+    </view>
+    <view class="choice-card">
+      <text wx:if="{{errorMessage}}" class="error-message" role="alert">{{errorMessage}}</text>
+      <button
+        class="primary-button"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bindtap="onCreate"
+      >{{state === 'existing' ? '生成邀请码' : '创建我们的小家'}}</button>
+      <button class="secondary-button" disabled="{{submitting}}" bindtap="onGoJoin">我有邀请码</button>
+    </view>
+    <text class="limit-note">每个小家最多 2 人，加入后双方权限相同</text>
+  </block>
+</view>

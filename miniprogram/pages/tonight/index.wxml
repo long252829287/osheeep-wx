@@ -1,0 +1,16 @@
+<view class="tonight-page">
+  <view wx:if="{{loading}}" class="loading-state">正在读取今晚菜单…</view>
+  <view wx:elif="{{errorMessage}}" class="error-state">{{errorMessage}}</view>
+  <block wx:else>
+    <text class="eyebrow">{{household.name}}</text>
+    <view class="success-mark"><icon type="success" size="52" color="#7B823B" /></view>
+    <text class="title">家庭已绑定</text>
+    <text class="copy">{{household.memberCount === 1 ? '还差 TA 加入，就可以一起选菜了' : '你们已经在同一个小家里了'}}</text>
+    <view class="placeholder-card">
+      <text class="placeholder-label">下一阶段</text>
+      <text class="placeholder-title">今晚菜单即将接入</text>
+      <text class="placeholder-copy">菜谱选择、双方合并和确认功能会在这里出现</text>
+    </view>
+    <button wx:if="{{household.memberCount === 1}}" class="primary-button" bindtap="onInvitePartner">邀请 TA 加入</button>
+  </block>
+</view>

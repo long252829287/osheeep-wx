@@ -1,0 +1,184 @@
+.household-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 72rpx 56rpx calc(44rpx + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.loading-state {
+  padding-top: 260rpx;
+  color: #77736b;
+  font-size: 28rpx;
+}
+
+.success-mark {
+  margin-top: 22rpx;
+}
+
+.success-title,
+.household-name,
+.invite-label,
+.invite-code,
+.invite-note,
+.eyebrow,
+.intro-title,
+.intro-copy,
+.limit-note {
+  display: block;
+}
+
+.success-title {
+  margin-top: 24rpx;
+  color: #747c38;
+  font-size: 48rpx;
+  font-weight: 700;
+}
+
+.household-name {
+  margin-top: 28rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.invite-card,
+.choice-card {
+  margin-top: 54rpx;
+  padding: 42rpx 36rpx;
+  border: 2rpx solid #ded5c0;
+  border-radius: 30rpx;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.invite-label {
+  color: #70783a;
+  font-size: 30rpx;
+  font-weight: 650;
+}
+
+.invite-code {
+  margin-top: 34rpx;
+  color: #c84d20;
+  font-size: 58rpx;
+  font-weight: 750;
+  letter-spacing: 5rpx;
+  white-space: nowrap;
+}
+
+.invite-note {
+  margin: 18rpx 0 38rpx;
+  color: #77736b;
+  font-size: 25rpx;
+}
+
+.primary-button,
+.secondary-button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 0;
+  min-height: 96rpx;
+  border-radius: 24rpx;
+  font-size: 31rpx;
+  font-weight: 650;
+  line-height: 96rpx;
+}
+
+.primary-button {
+  background: #cb5527;
+  color: #ffffff;
+}
+
+.primary-button[disabled] {
+  background: #dda385;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.secondary-button {
+  margin-bottom: 22rpx;
+  border: 2rpx solid #cb5527;
+  background: transparent;
+  color: #c84d20;
+}
+
+.steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 54rpx;
+}
+
+.step {
+  flex: 1;
+  color: #4d4b46;
+  font-size: 23rpx;
+}
+
+.step-number {
+  display: block;
+  width: 64rpx;
+  height: 64rpx;
+  margin: 0 auto 16rpx;
+  border-radius: 50%;
+  background: #f0ede1;
+  color: #737b3c;
+  font-weight: 700;
+  line-height: 64rpx;
+}
+
+.text-button {
+  width: 100%;
+  margin-top: 70rpx;
+  background: transparent;
+  color: #c84d20;
+  font-size: 28rpx;
+}
+
+.intro {
+  margin-top: 90rpx;
+}
+
+.eyebrow {
+  color: #747c38;
+  font-size: 25rpx;
+  font-weight: 650;
+  letter-spacing: 4rpx;
+}
+
+.intro-title {
+  margin-top: 28rpx;
+  font-size: 50rpx;
+  font-weight: 750;
+}
+
+.intro-copy {
+  margin-top: 22rpx;
+  color: #67645e;
+  font-size: 29rpx;
+  line-height: 1.6;
+}
+
+.choice-card {
+  margin-top: 76rpx;
+}
+
+.choice-card .primary-button {
+  margin-bottom: 22rpx;
+}
+
+.error-message {
+  display: block;
+  margin-bottom: 22rpx;
+  color: #bd472b;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.limit-note {
+  margin-top: 70rpx;
+  color: #77736b;
+  font-size: 25rpx;
+}

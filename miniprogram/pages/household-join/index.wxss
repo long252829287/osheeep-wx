@@ -1,0 +1,111 @@
+.join-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 92rpx 48rpx calc(50rpx + env(safe-area-inset-bottom));
+}
+
+.join-title,
+.join-copy,
+.limit-note {
+  display: block;
+}
+
+.join-title {
+  font-size: 52rpx;
+  font-weight: 750;
+}
+
+.join-copy {
+  margin-top: 22rpx;
+  color: #66635d;
+  font-size: 29rpx;
+  line-height: 1.55;
+}
+
+.invite-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 128rpx;
+  margin-top: 58rpx;
+  padding: 0 28rpx;
+  border: 3rpx solid #c94f24;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.56);
+  font-size: 46rpx;
+  letter-spacing: 10rpx;
+  text-align: center;
+}
+
+.invite-input-error {
+  background: #fff8f4;
+}
+
+.invite-placeholder {
+  color: #9b978f;
+}
+
+.error-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 20rpx;
+  color: #c74e2c;
+  font-size: 26rpx;
+  line-height: 1.45;
+}
+
+.primary-button,
+.paste-button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 108rpx;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 0;
+  border-radius: 24rpx;
+  font-size: 31rpx;
+  font-weight: 650;
+  line-height: 108rpx;
+}
+
+.primary-button {
+  margin-top: 48rpx;
+  background: #cb5527;
+  color: #ffffff;
+}
+
+.primary-button[disabled] {
+  background: #dda385;
+}
+
+.paste-button {
+  margin-top: 22rpx;
+  border: 2rpx dashed #cfc7b7;
+  background: transparent;
+  color: #70783a;
+}
+
+.create-link {
+  margin-top: 70rpx;
+  color: #66635d;
+  font-size: 27rpx;
+  text-align: center;
+}
+
+.create-link button {
+  margin-top: 10rpx;
+  background: transparent;
+  color: #4b7598;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.limit-note {
+  margin-top: 160rpx;
+  color: #77736b;
+  font-size: 25rpx;
+  text-align: center;
+}

@@ -377,7 +377,7 @@ git commit -m "feat: add typed api request client"
 - Consumes: `LoginPort.login()`、Task 3 的 `requestClient.request<T>()`、Task 2 的 `session.setAccessToken()`。
 - Produces: `createAuthService(...).loginWithWechat()`；`resolveInitialRoute(hasToken, hasHousehold): '/pages/onboarding/index' | '/pages/household-create/index' | '/pages/tonight/index'`。
 
-- [ ] **Step 1: 写失败的登录服务和路由测试**
+- [x] **Step 1: 写失败的登录服务和路由测试**
 
 ```ts
 import { createAuthService } from '../miniprogram/services/auth-service';
@@ -409,13 +409,13 @@ test.each([
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认模块缺失**
+- [x] **Step 2: 运行测试，确认模块缺失**
 
 Run: `npm test -- tests/auth-service.test.ts tests/initial-route.test.ts --runInBand`
 
 Expected: FAIL，两个目标模块均不存在。
 
-- [ ] **Step 3: 实现微信登录交换和路由函数**
+- [x] **Step 3: 实现微信登录交换和路由函数**
 
 ```ts
 // miniprogram/types/auth.ts
@@ -469,13 +469,13 @@ export const resolveInitialRoute = (hasToken: boolean, hasHousehold: boolean) =>
 };
 ```
 
-- [ ] **Step 4: 验证登录和路由**
+- [x] **Step 4: 验证登录和路由**
 
 Run: `npm test -- tests/auth-service.test.ts tests/initial-route.test.ts --runInBand && npm run typecheck`
 
 Expected: PASS，登录交换、错误传播和三种路由分支全部通过。
 
-- [ ] **Step 5: 提交登录服务**
+- [x] **Step 5: 提交登录服务**
 
 ```bash
 git add miniprogram/types/auth.ts miniprogram/services/auth-service.ts miniprogram/utils/initial-route.ts tests/auth-service.test.ts tests/initial-route.test.ts

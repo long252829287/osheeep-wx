@@ -8,5 +8,5 @@ export interface ApiResponse<T> {
 
 export interface RequestInit {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  data?: unknown;
+  data?: string | Record<string, unknown> | ArrayBuffer;
 }

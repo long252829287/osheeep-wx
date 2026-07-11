@@ -8,7 +8,7 @@ export interface RequestResult {
 export interface RequestOptions {
   url: string;
   method: NonNullable<RequestInit['method']>;
-  data?: unknown;
+  data?: RequestInit['data'];
   header?: Record<string, string>;
   success?: (result: RequestResult) => void;
   fail?: (error: { errMsg: string }) => void;

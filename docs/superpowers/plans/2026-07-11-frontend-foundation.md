@@ -281,7 +281,7 @@ export interface ApiResponse<T> {
 
 export interface RequestInit {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  data?: unknown;
+  data?: string | Record<string, unknown> | ArrayBuffer;
 }
 ```
 
@@ -297,7 +297,7 @@ interface RequestResult {
 interface RequestOptions {
   url: string;
   method: NonNullable<RequestInit['method']>;
-  data?: unknown;
+  data?: RequestInit['data'];
   header?: Record<string, string>;
   success?: (result: RequestResult) => void;
   fail?: (error: { errMsg: string }) => void;
@@ -499,7 +499,7 @@ git commit -m "feat: add wechat login service"
 - Consumes: Task 2 的 session store、Task 3 的 request client、Task 4 的 auth service；视觉基线 `docs/design/onboarding-first-entry.png`。
 - Produces: 可由微信开发者工具打开的首次进入页；按钮点击时调用真实 `wx.login` 和 `/api/auth/wechat`，失败保持当前页并展示错误，成功后保存令牌。家庭检查与跳转在下一阶段接入家庭接口时实现。
 
-- [ ] **Step 1: 扩展失败的启动文件契约测试**
+- [x] **Step 1: 扩展失败的启动文件契约测试**
 
 ```ts
 test.each([
@@ -514,13 +514,13 @@ test.each([
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认启动文件缺失**
+- [x] **Step 2: 运行测试，确认启动文件缺失**
 
 Run: `npm test -- tests/project-structure.test.ts --runInBand`
 
 Expected: FAIL，首个缺失的运行文件断言收到 `false`。
 
-- [ ] **Step 3: 实现最小启动文件和首次进入页**
+- [x] **Step 3: 实现最小启动文件和首次进入页**
 
 ```ts
 // miniprogram/app.ts
@@ -593,13 +593,13 @@ Page({
 
 `index.wxss` 使用 `#FFF8EE` 页面背景、`#E8753D` 主按钮、`#4E7FA8` 伴侣步骤和 `padding-bottom: calc(32rpx + env(safe-area-inset-bottom))`；不添加伪造插画、emoji、手绘 SVG 或虚构头像。
 
-- [ ] **Step 4: 运行全量验证**
+- [x] **Step 4: 运行全量验证**
 
 Run: `npm test -- --runInBand && npm run typecheck && npm run lint && npm run format:check`
 
 Expected: 所有测试 PASS；TypeScript、ESLint、Prettier 均以退出码 0 完成。
 
-- [ ] **Step 5: 提交可运行首屏**
+- [x] **Step 5: 提交可运行首屏**
 
 ```bash
 git add miniprogram tests/project-structure.test.ts README.md

@@ -231,7 +231,7 @@ git commit -m "feat: add runtime config and session storage"
 - Consumes: `RequestPort.request(options)`、`apiBaseUrl`、可选访问令牌和 `onUnauthorized`。
 - Produces: `createRequestClient(options).request<T>(path, init)`；成功返回 `data`，业务失败抛出 `ApiError`，401 先执行 `onUnauthorized`。
 
-- [ ] **Step 1: 写失败的请求映射测试**
+- [x] **Step 1: 写失败的请求映射测试**
 
 ```ts
 import { ApiError, createRequestClient, type RequestPort } from '../miniprogram/services/request';
@@ -256,18 +256,18 @@ test('clears session before exposing an unauthorized error', async () => {
   };
   const client = createRequestClient({ request, apiBaseUrl: 'https://api.test', getAccessToken: () => 'expired', onUnauthorized: () => { unauthorized = true; } });
 
-  await expect(client.request('/api/dinner/household')).rejects.toEqual(expect.objectContaining<ApiError>({ errorCode: 'UNAUTHORIZED', requestId: 'r-2' }));
+  await expect(client.request('/api/dinner/household')).rejects.toEqual(expect.objectContaining({ errorCode: 'UNAUTHORIZED', requestId: 'r-2' }));
   expect(unauthorized).toBe(true);
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认请求模块缺失**
+- [x] **Step 2: 运行测试，确认请求模块缺失**
 
 Run: `npm test -- tests/request.test.ts --runInBand`
 
 Expected: FAIL，Cannot find module `../miniprogram/services/request`。
 
-- [ ] **Step 3: 实现最小请求客户端**
+- [x] **Step 3: 实现最小请求客户端**
 
 ```ts
 // miniprogram/types/api.ts
@@ -351,13 +351,13 @@ export const createRequestClient = (options: {
 });
 ```
 
-- [ ] **Step 4: 验证请求行为**
+- [x] **Step 4: 验证请求行为**
 
 Run: `npm test -- tests/request.test.ts --runInBand && npm run typecheck`
 
 Expected: PASS，3 个请求相关断言全部通过，类型检查退出码 0。
 
-- [ ] **Step 5: 提交请求客户端**
+- [x] **Step 5: 提交请求客户端**
 
 ```bash
 git add miniprogram/types/api.ts miniprogram/services/request.ts tests/request.test.ts

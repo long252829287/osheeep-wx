@@ -1,5 +1,9 @@
+import type { HouseholdSummary } from '../../types/household';
+import { resolvePostLoginRoute } from '../../utils/initial-route';
+
 interface OsheeepApp {
   loginWithWechat: () => Promise<void>;
+  getHousehold: () => Promise<HouseholdSummary | null>;
 }
 
 Page({
@@ -11,8 +15,10 @@ Page({
   async onContinue() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      await getApp<OsheeepApp>().loginWithWechat();
-      wx.showToast({ title: '登录成功', icon: 'success' });
+      const app = getApp<OsheeepApp>();
+      await app.loginWithWechat();
+      const url = await resolvePostLoginRoute(app.getHousehold);
+      wx.reLaunch({ url });
     } catch (error) {
       this.setData({
         errorMessage:

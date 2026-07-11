@@ -1,5 +1,6 @@
 import { runtimeConfig } from './config/environment';
 import { createAuthService, type LoginPort } from './services/auth-service';
+import { createHouseholdService } from './services/household-service';
 import { createRequestClient, type RequestPort } from './services/request';
 import { sessionStore } from './state/session';
 
@@ -46,9 +47,16 @@ const authService = createAuthService({
   request: requestClient.request,
   setAccessToken: session.setAccessToken,
 });
+const householdService = createHouseholdService({
+  request: requestClient.request,
+});
 
 App({
   loginWithWechat: async () => {
     await authService.loginWithWechat();
   },
+  getHousehold: householdService.getCurrent,
+  createHousehold: householdService.create,
+  refreshInviteCode: householdService.refreshInviteCode,
+  joinHousehold: householdService.join,
 });

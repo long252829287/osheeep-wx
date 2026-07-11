@@ -1,4 +1,7 @@
-import { resolveInitialRoute } from '../miniprogram/utils/initial-route';
+import {
+  resolveInitialRoute,
+  resolvePostLoginRoute,
+} from '../miniprogram/utils/initial-route';
 
 test.each([
   [false, false, '/pages/onboarding/index'],
@@ -10,3 +13,12 @@ test.each([
     expect(resolveInitialRoute(hasToken, hasHousehold)).toBe(expected);
   },
 );
+
+test('checks household state after login before choosing a route', async () => {
+  await expect(resolvePostLoginRoute(async () => null)).resolves.toBe(
+    '/pages/household-create/index',
+  );
+  await expect(resolvePostLoginRoute(async () => ({ id: 11 }))).resolves.toBe(
+    '/pages/tonight/index',
+  );
+});

@@ -14,3 +14,8 @@ export const resolveInitialRoute = (
     ? '/pages/tonight/index'
     : '/pages/household-create/index';
 };
+
+export const resolvePostLoginRoute = async (
+  getHousehold: () => Promise<unknown | null>,
+): Promise<InitialRoute> =>
+  resolveInitialRoute(true, Boolean(await getHousehold()));

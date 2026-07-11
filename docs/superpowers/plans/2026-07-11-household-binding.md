@@ -41,7 +41,7 @@
 - Consumes: `OSHEEEP_DINNER_INVITE_SECRET`, local profile 默认回退到已存在的 `OSHEEEP_JWT_SECRET`。
 - Produces: `InviteCodeHasher.hash(String normalizedCode): String`，以及三个 MyBatis Mapper。
 
-- [ ] **Step 1: 写邀请码摘要失败测试**
+- [x] **Step 1: 写邀请码摘要失败测试**
 
 ```java
 @Test
@@ -55,13 +55,13 @@ void normalizesAndHashesWithoutReturningPlaintext() {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认类型缺失**
+- [x] **Step 2: 运行测试确认类型缺失**
 
 Run: `cd ../osheeep-server && mvn -Dtest=InviteCodeHasherTest test`
 
 Expected: FAIL，`InviteCodeHasher` 尚不存在。
 
-- [ ] **Step 3: 创建 V3 迁移**
+- [x] **Step 3: 创建 V3 迁移**
 
 迁移创建 `dinner_households`、`dinner_household_members`、`dinner_invite_codes`。关键约束：成员表 `user_id` 唯一；邀请码 `code_hash` 唯一；成员和邀请码均外键关联家庭；所有时间使用 `DATETIME(3)`；不创建明文邀请码列。
 
@@ -107,11 +107,11 @@ CREATE TABLE dinner_invite_codes (
 );
 ```
 
-- [ ] **Step 4: 实现实体、Mapper 和 HMAC 摘要**
+- [x] **Step 4: 实现实体、Mapper 和 HMAC 摘要**
 
 `DinnerHouseholdMapper` 增加 `selectByIdForUpdate(Long id)`，SQL 使用 `FOR UPDATE`。`InviteCodeHasher` 去空格、转大写后使用 `HmacSHA256`，输出 64 位小写十六进制；异常转换为 `IllegalStateException`，不得打印密钥或邀请码。
 
-- [ ] **Step 5: 配置邀请码密钥并验证**
+- [x] **Step 5: 配置邀请码密钥并验证**
 
 `application-local.yml`：
 
@@ -125,7 +125,7 @@ osheeep:
 
 Expected: PASS。
 
-- [ ] **Step 6: 提交数据模型**
+- [x] **Step 6: 提交数据模型**
 
 ```bash
 cd ../osheeep-server
@@ -152,7 +152,7 @@ git commit -m "feat: add dinner household persistence"
 - Consumes: `CurrentUser.id()`，Task 1 的 Mapper 与 `InviteCodeHasher`。
 - Produces: `GET /api/dinner/household`、`POST /api/dinner/households`、`POST /api/dinner/households/invite-code/refresh`、`POST /api/dinner/households/join`。
 
-- [ ] **Step 1: 写家庭服务失败测试**
+- [x] **Step 1: 写家庭服务失败测试**
 
 覆盖四个行为：创建时写入家庭和创建者成员并返回邀请码；已绑定用户不能重复创建；有效邀请码加入后成员数为 2；并发锁内成员数达到 2 时返回 `DINNER_HOUSEHOLD_FULL`。测试固定 `Clock`，断言过期时间为创建时间加 24 小时。
 
@@ -164,17 +164,17 @@ assertThatThrownBy(() -> service.join(8L, "DINNER 5268"))
                 assertThat(error.errorCode()).isEqualTo(ErrorCode.DINNER_HOUSEHOLD_FULL));
 ```
 
-- [ ] **Step 2: 运行服务测试确认失败**
+- [x] **Step 2: 运行服务测试确认失败**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerHouseholdServiceTest test`
 
 Expected: FAIL，服务和业务错误码尚不存在。
 
-- [ ] **Step 3: 实现最小服务**
+- [x] **Step 3: 实现最小服务**
 
 `create` 使用默认名兜底、写家庭和成员、生成 `DINNER%04d` 邀请码并最多重试 5 次哈希冲突。`refreshInvite` 校验当前用户是成员，撤销未过期邀请码后创建新码。`join` 先查邀请码摘要和有效期，再锁家庭行、复查当前用户未绑定、统计成员数，最后插入成员。所有写方法使用 `@Transactional`。
 
-- [ ] **Step 4: 增加精确业务错误码**
+- [x] **Step 4: 增加精确业务错误码**
 
 ```java
 DINNER_INVITE_INVALID(HttpStatus.BAD_REQUEST, "Invite code is invalid"),
@@ -183,15 +183,15 @@ DINNER_HOUSEHOLD_FULL(HttpStatus.CONFLICT, "Household already has two members"),
 DINNER_ALREADY_IN_HOUSEHOLD(HttpStatus.CONFLICT, "User already belongs to a household")
 ```
 
-- [ ] **Step 5: 写并运行 Controller 失败测试**
+- [x] **Step 5: 写并运行 Controller 失败测试**
 
-使用 `@SpringBootTest`、MockMvc 和测试 JWT，断言：无 JWT 返回 401；未绑定 GET 返回 `data: null`；创建返回 201 和 `inviteCode`；加入成功返回 200、`memberCount: 2`；无效/过期/满员分别映射精确错误码。
+使用 `@SpringBootTest`、MockMvc 和测试 JWT，断言：无 JWT 返回 401；未绑定 GET 成功且按现有 `NON_NULL` 契约省略 `data`；创建返回 201 和 `inviteCode`；加入成功返回 200、`memberCount: 2`；无效/过期/满员分别映射精确错误码。
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerHouseholdControllerTest test`
 
 Expected: 首次 FAIL，控制器尚未注册；实现控制器后 PASS。
 
-- [ ] **Step 6: 更新 API 契约并跑完整后端测试**
+- [x] **Step 6: 更新 API 契约并跑完整后端测试**
 
 记录请求与响应字段：`HouseholdResponse(id,name,timezone,memberCount)`；创建/刷新额外返回 `inviteCode` 与 ISO-8601 `inviteExpiresAt`；加入请求 `{ "inviteCode": "DINNER 5268" }`。
 
@@ -199,7 +199,7 @@ Run: `cd ../osheeep-server && mvn test`
 
 Expected: BUILD SUCCESS，原有 40 个测试和新增测试全部通过。
 
-- [ ] **Step 7: 提交家庭 API**
+- [x] **Step 7: 提交家庭 API**
 
 ```bash
 cd ../osheeep-server
@@ -221,7 +221,7 @@ git commit -m "feat: add dinner household APIs"
 - Consumes: 现有 `requestClient.request` 和 `sessionStore`。
 - Produces: App 方法 `getHousehold()`、`createHousehold()`、`refreshInviteCode()`、`joinHousehold(inviteCode)`，以及登录后路由跳转。
 
-- [ ] **Step 1: 写 household service 失败测试**
+- [x] **Step 1: 写 household service 失败测试**
 
 ```ts
 expect(await service.getCurrent()).toBeNull();
@@ -234,21 +234,21 @@ expect(request).toHaveBeenCalledWith('/api/dinner/households/join', {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认 service 缺失**
+- [x] **Step 2: 运行测试确认 service 缺失**
 
 Run: `npm test -- household-service.test.ts`
 
 Expected: FAIL，模块尚不存在。
 
-- [ ] **Step 3: 实现类型和 service**
+- [x] **Step 3: 实现类型和 service**
 
 类型包含 `HouseholdSummary`、`HouseholdCreatedResult`。service 只做路径映射、邀请码去首尾空格/转大写和错误透传，不在 service 中展示 Toast 或跳转。
 
-- [ ] **Step 4: 登录成功后查询家庭并跳转**
+- [x] **Step 4: 登录成功后查询家庭并跳转**
 
 `onboarding.onContinue` 登录后调用 `getHousehold()`；有家庭使用 `wx.reLaunch({url:'/pages/tonight/index'})`，无家庭使用 `wx.reLaunch({url:'/pages/household-create/index'})`。查询失败停留当前页并展示错误，不伪造无家庭状态。
 
-- [ ] **Step 5: 运行前端逻辑验证并提交**
+- [x] **Step 5: 运行前端逻辑验证并提交**
 
 Run: `npm test && npm run typecheck && npm run lint && npm run format:check`
 

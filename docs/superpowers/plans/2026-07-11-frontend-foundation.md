@@ -160,7 +160,7 @@ git commit -m "chore: scaffold native mini program toolchain"
 - Consumes: `StoragePort`，签名为 `getStorageSync<T>(key: string): T | undefined`、`setStorageSync(key: string, value: unknown): void`、`removeStorageSync(key: string): void`。
 - Produces: `sessionStore(storage)`，包含 `getAccessToken()`、`setAccessToken(token)`、`clear()`；常量 `runtimeConfig.apiBaseUrl`。
 
-- [ ] **Step 1: 写失败的会话测试**
+- [x] **Step 1: 写失败的会话测试**
 
 ```ts
 import { sessionStore, type StoragePort } from '../miniprogram/state/session';
@@ -181,13 +181,13 @@ test('stores and clears the access token through the storage port', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认模块缺失**
+- [x] **Step 2: 运行测试，确认模块缺失**
 
 Run: `npm test -- tests/session.test.ts --runInBand`
 
 Expected: FAIL，Cannot find module `../miniprogram/state/session`。
 
-- [ ] **Step 3: 实现最小会话存储**
+- [x] **Step 3: 实现最小会话存储**
 
 ```ts
 const ACCESS_TOKEN_KEY = 'osheeep.accessToken';
@@ -207,13 +207,13 @@ export const sessionStore = (storage: StoragePort) => ({
 
 `environment.ts` 只导出 `{ apiBaseUrl: 'http://127.0.0.1:8080' } as const`。
 
-- [ ] **Step 4: 验证会话测试和类型检查**
+- [x] **Step 4: 验证会话测试和类型检查**
 
 Run: `npm test -- tests/session.test.ts --runInBand && npm run typecheck`
 
 Expected: PASS，类型检查退出码 0。
 
-- [ ] **Step 5: 提交会话边界**
+- [x] **Step 5: 提交会话边界**
 
 ```bash
 git add miniprogram/config/environment.ts miniprogram/state/session.ts tests/session.test.ts

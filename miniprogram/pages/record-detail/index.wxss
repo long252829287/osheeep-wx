@@ -1,13 +1,23 @@
-.detail-page { box-sizing: border-box; min-height: 100vh; padding: 54rpx 40rpx calc(56rpx + env(safe-area-inset-bottom)); }
-.eyebrow, .detail-title, .detail-copy, .dish-name, .dish-meta { display: block; }
-.eyebrow { color: #7b823b; font-size: 24rpx; font-weight: 650; letter-spacing: 3rpx; }
-.detail-title { margin-top: 16rpx; font-size: 44rpx; font-weight: 750; }
-.detail-copy { margin-top: 14rpx; color: #77736b; font-size: 26rpx; }
+.detail-page { box-sizing: border-box; min-height: 100vh; padding: 36rpx 32rpx calc(154rpx + env(safe-area-inset-bottom)); }
 .status-state { padding: 220rpx 0; color: #77736b; text-align: center; font-size: 27rpx; }
 .status-state--error { color: #bd472b; }
-.dish-list { display: flex; gap: 24rpx; margin-top: 48rpx; flex-direction: column; }
-.dish-card { display: flex; overflow: hidden; align-items: center; border: 1rpx solid #eadfce; border-radius: 25rpx; background: #fffdf9; }
-.dish-image { width: 190rpx; height: 190rpx; flex: 0 0 auto; background: #eee5d8; }
-.dish-body { min-width: 0; padding: 26rpx; }
-.dish-name { font-size: 31rpx; font-weight: 700; }
-.dish-meta { margin-top: 12rpx; color: #817c73; font-size: 24rpx; }
+.success-banner { display: flex; align-items: center; gap: 20rpx; padding: 28rpx 30rpx; border: 1rpx solid #dcd9bd; border-radius: 24rpx; background: #fbfaef; }
+.success-icon { display: flex; width: 62rpx; height: 62rpx; align-items: center; justify-content: center; border-radius: 50%; background: #7b823b; flex: 0 0 auto; }
+.success-icon-image { width: 38rpx; height: 38rpx; }
+.success-title, .success-copy, .detail-title, .detail-copy, .dish-name, .record-note { display: block; }
+.success-title { color: #73783c; font-size: 31rpx; font-weight: 730; }
+.success-copy { margin-top: 7rpx; color: #77736b; font-size: 23rpx; }
+.record-panel { margin-top: 28rpx; padding: 38rpx 28rpx 34rpx; border: 1rpx solid #e1d7c9; border-radius: 28rpx; background: #fffdf9; }
+.detail-heading { display: flex; align-items: center; gap: 18rpx; }
+.heading-icon { width: 48rpx; height: 48rpx; flex: 0 0 auto; }
+.detail-title { font-size: 36rpx; font-weight: 750; }
+.detail-copy { margin-top: 8rpx; color: #77736b; font-size: 24rpx; }
+.dish-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24rpx 20rpx; margin-top: 34rpx; }
+.dish-card { position: relative; min-width: 0; }
+.dish-image { display: block; width: 100%; height: 280rpx; border-radius: 22rpx; background: #eee5d8; }
+.dish-name { margin-top: 12rpx; overflow: hidden; text-align: center; font-size: 27rpx; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.consensus-label { position: absolute; top: 12rpx; right: 10rpx; padding: 7rpx 12rpx; border-radius: 18rpx; background: #7b823b; color: #fff; font-size: 18rpx; }
+.primary-button, .secondary-button { display: flex; min-height: 90rpx; align-items: center; justify-content: center; margin-top: 34rpx; border-radius: 20rpx; font-size: 29rpx; font-weight: 690; line-height: 90rpx; }
+.primary-button { background: #ca5325; color: #fff; }
+.secondary-button { margin-top: 18rpx; border: 2rpx solid #ca5325; background: transparent; color: #ca5325; }
+.record-note { margin-top: 24rpx; color: #858078; text-align: center; font-size: 21rpx; }

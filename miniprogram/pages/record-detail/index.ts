@@ -27,4 +27,12 @@ Page({
       this.setData({ loading: false });
     }
   },
+
+  onRepeatMeal() {
+    wx.reLaunch({ url: '/pages/recipes/index' });
+  },
+
+  onBackToRecords() {
+    wx.reLaunch({ url: '/pages/records/index' });
+  },
 });

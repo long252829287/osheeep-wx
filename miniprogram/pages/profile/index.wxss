@@ -6,6 +6,10 @@
 .status-state--error { color: #bd472b; }
 .household-card { margin-top: 62rpx; padding: 60rpx 42rpx 42rpx; border: 1rpx solid #e6dbc9; border-radius: 32rpx; background: #fffdf9; text-align: center; box-shadow: 0 16rpx 40rpx rgba(72, 55, 29, 0.06); }
 .household-icon { display: flex; width: 108rpx; height: 108rpx; align-items: center; justify-content: center; margin: 0 auto; border-radius: 54rpx; background: #f1f0dd; }
+.household-icon-image { width: 58rpx; height: 58rpx; }
+.profile-avatars { display: flex; justify-content: center; margin-top: 28rpx; }
+.profile-avatar { width: 76rpx; height: 76rpx; border: 4rpx solid #fffdf9; border-radius: 50%; }
+.profile-avatar--overlap { margin-left: -20rpx; }
 .household-name { margin-top: 28rpx; font-size: 38rpx; font-weight: 750; }
 .household-meta { margin-top: 12rpx; color: #7c776f; font-size: 25rpx; }
 .divider { height: 1rpx; margin: 44rpx 0 32rpx; background: #ece2d3; }

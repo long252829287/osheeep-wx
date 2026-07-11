@@ -598,7 +598,7 @@ git commit -m "feat: add dinner navigation and recipe assets"
 - Consumes: Task 5 services and Task 6 pages/assets.
 - Produces: complete visual states and `startMenuPolling(load, scheduler, 8000)` returning a stop function.
 
-- [ ] **Step 1: Write failing polling and error tests**
+- [x] **Step 1: Write failing polling and error tests**
 
 ```ts
 const stop = startMenuPolling(load, scheduler, 8000);
@@ -613,31 +613,31 @@ expect(toMenuErrorMessage('DINNER_MENU_VERSION_CONFLICT'))
   .toBe('菜单已被对方更新，请确认最新内容后重新保存');
 ```
 
-- [ ] **Step 2: Run tests and confirm helpers are missing**
+- [x] **Step 2: Run tests and confirm helpers are missing**
 
 Run: `npm test -- menu-polling.test.ts menu-errors.test.ts`
 
 Expected: FAIL.
 
-- [ ] **Step 3: Implement tonight states and actions**
+- [x] **Step 3: Implement tonight states and actions**
 
 `onShow` loads immediately and starts polling; `onHide/onUnload` stop it. Empty and draft states link to recipes. Confirm/complete create one idempotency key per attempt, disable the button while pending, replace the page snapshot on success, and retain content on network failure.
 
-- [ ] **Step 4: Implement batch selection and conflict recovery**
+- [x] **Step 4: Implement batch selection and conflict recovery**
 
 Recipes page copies `selectedRecipeIds` into a local `Set<number>`. Save sends the full sorted array and original version. On `DINNER_MENU_VERSION_CONFLICT`, fetch latest, retain the local set, update the base version, display the conflict banner and require an explicit second save.
 
-- [ ] **Step 5: Implement records and visual matching**
+- [x] **Step 5: Implement records and visual matching**
 
 Use the approved single-column menu, visible source labels, confirmed/reconfirm banners, fixed safe-area actions, record snapshots and empty record state. Compare source and simulator screenshots in the same visual input and record iterations in `design-qa.md`.
 
-- [ ] **Step 6: Run full frontend verification**
+- [x] **Step 6: Run full frontend verification**
 
 Run: `npm test && npm run typecheck && npm run lint && npm run format:check`
 
 Expected: all suites PASS with zero type, lint or formatting errors.
 
-- [ ] **Step 7: Commit Task 7**
+- [x] **Step 7: Commit Task 7**
 
 ```bash
 git add miniprogram tests design-qa.md

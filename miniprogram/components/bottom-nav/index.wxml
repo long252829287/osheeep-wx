@@ -1,18 +1,18 @@
 <view class="bottom-nav" aria-role="tablist">
   <view class="nav-item {{active === 'tonight' ? 'nav-item--active' : ''}}" data-key="tonight" bindtap="onNavigate" aria-role="tab" aria-label="今晚">
-    <t-icon name="{{active === 'tonight' ? 'rice-filled' : 'rice'}}" size="42rpx" />
+    <image class="nav-icon" src="/assets/icons/nav-tonight{{active === 'tonight' ? '-active' : ''}}.svg" mode="aspectFit" />
     <text>今晚</text>
   </view>
   <view class="nav-item {{active === 'recipes' ? 'nav-item--active' : ''}}" data-key="recipes" bindtap="onNavigate" aria-role="tab" aria-label="菜谱">
-    <t-icon name="{{active === 'recipes' ? 'book-open-filled' : 'book-open'}}" size="42rpx" />
+    <image class="nav-icon" src="/assets/icons/nav-recipes{{active === 'recipes' ? '-active' : ''}}.svg" mode="aspectFit" />
     <text>菜谱</text>
   </view>
   <view class="nav-item {{active === 'records' ? 'nav-item--active' : ''}}" data-key="records" bindtap="onNavigate" aria-role="tab" aria-label="记录">
-    <t-icon name="{{active === 'records' ? 'calendar-filled' : 'calendar'}}" size="42rpx" />
+    <image class="nav-icon" src="/assets/icons/nav-records{{active === 'records' ? '-active' : ''}}.svg" mode="aspectFit" />
     <text>记录</text>
   </view>
   <view class="nav-item {{active === 'profile' ? 'nav-item--active' : ''}}" data-key="profile" bindtap="onNavigate" aria-role="tab" aria-label="我的">
-    <t-icon name="{{active === 'profile' ? 'user-circle-filled' : 'user-circle'}}" size="42rpx" />
+    <image class="nav-icon" src="/assets/icons/nav-profile{{active === 'profile' ? '-active' : ''}}.svg" mode="aspectFit" />
     <text>我的</text>
   </view>
 </view>

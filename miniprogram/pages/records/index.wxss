@@ -7,10 +7,13 @@
 .status-state { padding: 180rpx 0; color: #77736b; text-align: center; font-size: 27rpx; }
 .status-state--error { color: #bd472b; }
 .empty-card { margin-top: 54rpx; padding: 80rpx 52rpx; border: 1rpx solid #e6dbc9; border-radius: 30rpx; background: #fffdf9; text-align: center; }
-.empty-title { font-size: 32rpx; font-weight: 700; }
+.empty-icon { width: 82rpx; height: 82rpx; }
+.empty-title { margin-top: 24rpx; font-size: 32rpx; font-weight: 700; }
 .empty-copy { margin-top: 16rpx; color: #817c73; font-size: 25rpx; line-height: 1.65; }
 .record-list { display: flex; gap: 22rpx; flex-direction: column; }
-.record-card { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 30rpx; border: 1rpx solid #eadfce; border-radius: 24rpx; background: #fffdf9; }
+.record-card { display: grid; grid-template-columns: 76rpx 1fr auto; align-items: center; padding: 30rpx; border: 1rpx solid #eadfce; border-radius: 24rpx; background: #fffdf9; }
+.record-icon { display: flex; width: 60rpx; height: 60rpx; align-items: center; justify-content: center; border-radius: 50%; background: #fff1e9; }
+.record-icon-image { width: 42rpx; height: 42rpx; }
+.arrow-icon { width: 38rpx; height: 38rpx; }
 .record-date { font-size: 31rpx; font-weight: 700; }
 .record-meta { margin-top: 10rpx; color: #7d786f; font-size: 24rpx; }
-.record-arrow { color: #bd4e29; font-size: 48rpx; font-weight: 300; }

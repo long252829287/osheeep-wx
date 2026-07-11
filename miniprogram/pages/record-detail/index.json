@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "晚餐详情"
+  "navigationBarTitleText": "晚餐详情",
+  "usingComponents": {
+    "bottom-nav": "/components/bottom-nav/index"
+  }
 }

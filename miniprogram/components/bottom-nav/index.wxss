@@ -26,3 +26,5 @@
   color: #c84d20;
   font-weight: 650;
 }
+
+.nav-icon { width: 42rpx; height: 42rpx; }

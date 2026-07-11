@@ -5,16 +5,26 @@
     <text class="page-copy">你们各自选择，我们自动合成今晚菜单</text>
   </view>
 
+  <view wx:if="{{conflictMessage}}" class="conflict-banner">
+    <image class="banner-icon" src="/assets/icons/info-green.svg" />
+    <text>{{conflictMessage}}</text>
+  </view>
+  <view wx:if="{{errorMessage}}" class="error-banner">{{errorMessage}}</view>
+
   <view wx:if="{{loading}}" class="status-state">正在准备菜谱…</view>
-  <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
   <view wx:else class="recipe-grid">
-    <view wx:for="{{recipes}}" wx:key="id" class="recipe-card">
+    <view wx:for="{{recipes}}" wx:key="id" class="recipe-card {{item.selected ? 'recipe-card--selected' : ''}}" data-id="{{item.id}}" bindtap="onToggleRecipe">
       <image class="recipe-image" src="{{item.imagePath}}" mode="aspectFill" />
+      <view wx:if="{{item.selected}}" class="selected-mark"><image class="check-icon" src="/assets/icons/check-white.svg" /></view>
       <view class="recipe-body">
         <text class="recipe-name">{{item.name}}</text>
         <text class="recipe-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
       </view>
     </view>
   </view>
+</view>
+
+<view wx:if="{{!loading}}" class="save-area">
+  <button class="save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="onSaveSelections">保存我的选择 · {{selectedCount}} 道</button>
 </view>
 <bottom-nav active="recipes" />

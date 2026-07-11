@@ -1,17 +1,74 @@
 <view class="tonight-page">
-  <view wx:if="{{loading}}" class="loading-state">正在读取今晚菜单…</view>
-  <view wx:elif="{{errorMessage}}" class="error-state">{{errorMessage}}</view>
-  <block wx:else>
-    <text class="eyebrow">{{household.name}}</text>
-    <view class="success-mark"><icon type="success" size="52" color="#7B823B" /></view>
-    <text class="title">家庭已绑定</text>
-    <text class="copy">{{household.memberCount === 1 ? '还差 TA 加入，就可以一起选菜了' : '你们已经在同一个小家里了'}}</text>
-    <view class="placeholder-card">
-      <text class="placeholder-label">下一阶段</text>
-      <text class="placeholder-title">今晚菜单即将接入</text>
-      <text class="placeholder-copy">菜谱选择、双方合并和确认功能会在这里出现</text>
+  <view wx:if="{{loading}}" class="status-state">正在读取今晚菜单…</view>
+  <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
+  <block wx:elif="{{menu}}">
+    <view class="page-heading">
+      <view class="heading-icon"><image class="icon icon--home" src="/assets/icons/home-orange.svg" /></view>
+      <view class="heading-copy">
+        <text class="page-title">今晚吃什么</text>
+        <text class="household-name">{{household.name}} · {{household.memberCount}} 人的小家</text>
+      </view>
+      <view class="couple-avatars">
+        <image class="heading-avatar" src="/assets/avatars/partner.jpg" mode="aspectFill" />
+        <image class="heading-avatar heading-avatar--overlap" src="/assets/avatars/me.jpg" mode="aspectFill" />
+      </view>
     </view>
-    <button wx:if="{{household.memberCount === 1}}" class="primary-button" bindtap="onInvitePartner">邀请 TA 加入</button>
+
+    <view class="agreement-row">
+      <view class="agreement-item agreement-item--mine">
+        <image class="person-avatar person-avatar--mine" src="/assets/avatars/me.jpg" mode="aspectFill" />
+        <text class="agreement-value">我 · {{menu.mySelectionCount}} 道</text>
+        <text class="agreement-label">已选 {{menu.mySelectionCount}} 道</text>
+      </view>
+      <view class="agreement-center">
+        <view class="agreement-check"><image class="icon icon--check" src="/assets/icons/check-white.svg" /></view>
+        <text class="agreement-value">{{menu.status === 'DRAFT' ? '共同 · ' + menu.consensusCount + ' 道' : '已确认'}}</text>
+        <text class="agreement-label">{{menu.status === 'DRAFT' ? '都想吃' : '今晚菜单'}}</text>
+      </view>
+      <view class="agreement-item agreement-item--partner">
+        <image class="person-avatar person-avatar--partner" src="/assets/avatars/partner.jpg" mode="aspectFill" />
+        <text class="agreement-value">TA · {{menu.partnerSelectionCount}} 道</text>
+        <text class="agreement-label">已选 {{menu.partnerSelectionCount}} 道</text>
+      </view>
+    </view>
+
+    <view wx:if="{{menu.status === 'CONFIRMED'}}" class="confirmed-banner">
+      <image class="icon icon--small" src="/assets/icons/circle-check-green.svg" />
+      <text>菜单已确认，修改选择后需重新确认</text>
+    </view>
+    <view wx:if="{{noticeMessage}}" class="notice-banner">{{noticeMessage}}</view>
+
+    <view class="section-heading">
+      <image class="icon icon--section" src="/assets/icons/clipboard-green.svg" />
+      <text>{{menu.dishes.length ? '合并菜单' : '今晚菜单'}} {{menu.dishes.length}} 道</text>
+      <view class="section-line" />
+    </view>
+
+    <view wx:if="{{menu.dishes.length === 0}}" class="empty-state">
+      <image class="icon icon--empty" src="/assets/icons/bowl-muted.svg" />
+      <text class="empty-title">今晚还没有想吃的菜</text>
+      <text class="empty-copy">先选一道，给 TA 一个晚餐灵感</text>
+      <button class="choose-button" bindtap="onChooseRecipes">去选菜</button>
+    </view>
+
+    <view wx:else class="dish-list">
+      <view wx:for="{{dishes}}" wx:key="recipeId" class="dish-card dish-card--{{item.sourceTone}}">
+        <image class="dish-image" src="{{item.imagePath}}" mode="aspectFill" />
+        <view class="dish-copy">
+          <text class="dish-name">{{item.name}}</text>
+          <text class="dish-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
+        </view>
+        <text class="source-label source-label--{{item.sourceTone}}">{{item.sourceLabel}}</text>
+      </view>
+      <button class="secondary-button" bindtap="onChooseRecipes">{{menu.status === 'CONFIRMED' ? '修改选择' : '加一道菜'}}</button>
+    </view>
+
+    <view class="action-area">
+      <button wx:if="{{menu.status === 'DRAFT'}}" class="primary-button" disabled="{{menu.dishes.length === 0 || actionPending}}" loading="{{actionPending}}" bindtap="onConfirmMenu">确认今晚菜单</button>
+      <button wx:elif="{{menu.status === 'CONFIRMED'}}" class="primary-button" disabled="{{actionPending}}" loading="{{actionPending}}" bindtap="onCompleteMenu">已做完，生成记录</button>
+      <button wx:else class="primary-button" bindtap="onOpenRecord">查看这顿晚饭</button>
+      <text class="action-note">{{menu.status === 'DRAFT' ? (menu.dishes.length ? '任一方确认后生效' : '至少选择 1 道菜后才能确认') : (menu.status === 'CONFIRMED' ? '重复点击不会生成多条记录' : '这份菜单已经保存到做饭记录')}}</text>
+    </view>
   </block>
 </view>
 <bottom-nav active="tonight" />

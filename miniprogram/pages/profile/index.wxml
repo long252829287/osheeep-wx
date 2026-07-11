@@ -7,7 +7,11 @@
   <view wx:if="{{loading}}" class="status-state">正在读取小家…</view>
   <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
   <view wx:elif="{{household}}" class="household-card">
-    <view class="household-icon"><t-icon name="home-filled" size="58rpx" color="#7B823B" /></view>
+    <view class="household-icon"><image class="household-icon-image" src="/assets/icons/home-orange.svg" /></view>
+    <view class="profile-avatars">
+      <image class="profile-avatar" src="/assets/avatars/me.jpg" mode="aspectFill" />
+      <image class="profile-avatar profile-avatar--overlap" src="/assets/avatars/partner.jpg" mode="aspectFill" />
+    </view>
     <text class="household-name">{{household.name}}</text>
     <text class="household-meta">{{household.memberCount}} 位家庭成员</text>
     <view class="divider" />

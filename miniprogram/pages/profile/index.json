@@ -1,7 +1,6 @@
 {
   "navigationBarTitleText": "我的小家",
   "usingComponents": {
-    "bottom-nav": "/components/bottom-nav/index",
-    "t-icon": "tdesign-miniprogram/icon/icon"
+    "bottom-nav": "/components/bottom-nav/index"
   }
 }

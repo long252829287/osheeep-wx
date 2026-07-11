@@ -13,13 +13,8 @@
     "minified": false,
     "uglifyFileName": false,
     "uploadWithSourceMap": true,
-    "packNpmManually": true,
-    "packNpmRelationList": [
-      {
-        "packageJsonPath": "./package.json",
-        "miniprogramNpmDistDir": "./miniprogram/"
-      }
-    ],
+    "packNpmManually": false,
+    "packNpmRelationList": [],
     "minifyWXSS": true,
     "minifyWXML": true,
     "localPlugins": false,

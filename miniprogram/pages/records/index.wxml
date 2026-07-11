@@ -8,16 +8,18 @@
   <view wx:if="{{loading}}" class="status-state">正在读取记录…</view>
   <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
   <view wx:elif="{{records.length === 0}}" class="empty-card">
+    <image class="empty-icon" src="/assets/icons/calendar-muted.svg" />
     <text class="empty-title">还没有做饭记录</text>
     <text class="empty-copy">完成第一份今晚菜单后，这里就会留下回忆</text>
   </view>
   <view wx:else class="record-list">
     <view wx:for="{{records}}" wx:key="id" class="record-card" data-id="{{item.id}}" bindtap="onOpenRecord">
+      <view class="record-icon"><image class="record-icon-image" src="/assets/icons/bowl-orange.svg" /></view>
       <view>
         <text class="record-date">{{item.recordDate}}</text>
         <text class="record-meta">{{item.dishCount}} 道菜 · 已完成</text>
       </view>
-      <text class="record-arrow">›</text>
+      <image class="arrow-icon" src="/assets/icons/chevron-gray.svg" />
     </view>
   </view>
 </view>

@@ -2,19 +2,33 @@
   <view wx:if="{{loading}}" class="status-state">正在打开这顿晚饭…</view>
   <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
   <block wx:elif="{{record}}">
-    <view class="detail-heading">
-      <text class="eyebrow">一起完成的一餐</text>
-      <text class="detail-title">{{record.recordDate}} 的晚餐</text>
-      <text class="detail-copy">共 {{record.dishes.length}} 道菜</text>
+    <view class="success-banner">
+      <view class="success-icon"><image class="success-icon-image" src="/assets/icons/check-white.svg" /></view>
+      <view>
+        <text class="success-title">已生成做饭记录</text>
+        <text class="success-copy">{{record.recordDate}} · 这顿饭已完成</text>
+      </view>
     </view>
-    <view class="dish-list">
-      <view wx:for="{{record.dishes}}" wx:key="recipeId" class="dish-card">
-        <image class="dish-image" src="{{item.imagePath}}" mode="aspectFill" />
-        <view class="dish-body">
-          <text class="dish-name">{{item.name}}</text>
-          <text class="dish-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
+
+    <view class="record-panel">
+      <view class="detail-heading">
+        <image class="heading-icon" src="/assets/icons/clipboard-orange.svg" />
+        <view>
+          <text class="detail-title">今晚一起吃的晚饭</text>
+          <text class="detail-copy">共 {{record.dishes.length}} 道菜</text>
         </view>
       </view>
+      <view class="dish-grid">
+        <view wx:for="{{record.dishes}}" wx:key="recipeId" class="dish-card">
+          <image class="dish-image" src="{{item.imagePath}}" mode="aspectFill" />
+          <text class="dish-name">{{item.name}}</text>
+          <text wx:if="{{item.source === 'BOTH'}}" class="consensus-label">共同选择</text>
+        </view>
+      </view>
+      <button class="primary-button" bindtap="onRepeatMeal">再次做这顿</button>
+      <button class="secondary-button" bindtap="onBackToRecords">返回做饭记录</button>
+      <text class="record-note">菜谱后续修改不会影响这条记录</text>
     </view>
   </block>
 </view>
+<bottom-nav active="records" />

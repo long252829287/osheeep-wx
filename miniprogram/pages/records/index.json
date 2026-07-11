@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "做饭记录",
+  "usingComponents": {
+    "bottom-nav": "/components/bottom-nav/index"
+  }
+}

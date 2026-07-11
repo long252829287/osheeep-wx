@@ -1,0 +1,16 @@
+.page-shell { box-sizing: border-box; min-height: 100vh; padding: 54rpx 40rpx calc(150rpx + env(safe-area-inset-bottom)); }
+.page-heading { padding-bottom: 46rpx; }
+.eyebrow, .page-title, .page-copy, .empty-title, .empty-copy, .record-date, .record-meta { display: block; }
+.eyebrow { color: #7b823b; font-size: 24rpx; font-weight: 650; letter-spacing: 3rpx; }
+.page-title { margin-top: 16rpx; font-size: 48rpx; font-weight: 750; }
+.page-copy { margin-top: 14rpx; color: #77736b; font-size: 26rpx; }
+.status-state { padding: 180rpx 0; color: #77736b; text-align: center; font-size: 27rpx; }
+.status-state--error { color: #bd472b; }
+.empty-card { margin-top: 54rpx; padding: 80rpx 52rpx; border: 1rpx solid #e6dbc9; border-radius: 30rpx; background: #fffdf9; text-align: center; }
+.empty-title { font-size: 32rpx; font-weight: 700; }
+.empty-copy { margin-top: 16rpx; color: #817c73; font-size: 25rpx; line-height: 1.65; }
+.record-list { display: flex; gap: 22rpx; flex-direction: column; }
+.record-card { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 30rpx; border: 1rpx solid #eadfce; border-radius: 24rpx; background: #fffdf9; }
+.record-date { font-size: 31rpx; font-weight: 700; }
+.record-meta { margin-top: 10rpx; color: #7d786f; font-size: 24rpx; }
+.record-arrow { color: #bd4e29; font-size: 48rpx; font-weight: 300; }

@@ -1,0 +1,20 @@
+<view class="detail-page">
+  <view wx:if="{{loading}}" class="status-state">正在打开这顿晚饭…</view>
+  <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
+  <block wx:elif="{{record}}">
+    <view class="detail-heading">
+      <text class="eyebrow">一起完成的一餐</text>
+      <text class="detail-title">{{record.recordDate}} 的晚餐</text>
+      <text class="detail-copy">共 {{record.dishes.length}} 道菜</text>
+    </view>
+    <view class="dish-list">
+      <view wx:for="{{record.dishes}}" wx:key="recipeId" class="dish-card">
+        <image class="dish-image" src="{{item.imagePath}}" mode="aspectFill" />
+        <view class="dish-body">
+          <text class="dish-name">{{item.name}}</text>
+          <text class="dish-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

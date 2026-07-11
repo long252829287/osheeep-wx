@@ -1,0 +1,19 @@
+.page-shell {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 54rpx 32rpx calc(150rpx + env(safe-area-inset-bottom));
+}
+
+.page-heading { padding: 0 8rpx 38rpx; }
+.eyebrow, .page-title, .page-copy, .recipe-name, .recipe-meta { display: block; }
+.eyebrow { color: #7b823b; font-size: 24rpx; font-weight: 650; letter-spacing: 3rpx; }
+.page-title { margin-top: 16rpx; font-size: 48rpx; font-weight: 750; }
+.page-copy { margin-top: 14rpx; color: #77736b; font-size: 26rpx; }
+.status-state { padding: 180rpx 0; color: #77736b; text-align: center; font-size: 27rpx; }
+.status-state--error { color: #bd472b; }
+.recipe-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24rpx; }
+.recipe-card { overflow: hidden; border: 1rpx solid #eadfce; border-radius: 26rpx; background: #fffdf9; box-shadow: 0 10rpx 28rpx rgba(72, 55, 29, 0.06); }
+.recipe-image { display: block; width: 100%; height: 286rpx; background: #eee5d8; }
+.recipe-body { padding: 20rpx 20rpx 24rpx; }
+.recipe-name { font-size: 30rpx; font-weight: 700; }
+.recipe-meta { margin-top: 9rpx; color: #8a857b; font-size: 22rpx; }

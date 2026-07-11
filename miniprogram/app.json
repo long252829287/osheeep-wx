@@ -3,7 +3,11 @@
     "pages/onboarding/index",
     "pages/household-create/index",
     "pages/household-join/index",
-    "pages/tonight/index"
+    "pages/tonight/index",
+    "pages/recipes/index",
+    "pages/records/index",
+    "pages/record-detail/index",
+    "pages/profile/index"
   ],
   "window": {
     "navigationBarTitleText": "今晚吃什么",

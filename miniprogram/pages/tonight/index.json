@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "今晚菜单",
   "navigationBarBackgroundColor": "#FFFAF3",
-  "navigationBarTextStyle": "black"
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "bottom-nav": "/components/bottom-nav/index"
+  }
 }

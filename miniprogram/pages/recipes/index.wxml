@@ -1,0 +1,20 @@
+<view class="page-shell">
+  <view class="page-heading">
+    <text class="eyebrow">今晚想吃什么</text>
+    <text class="page-title">选几道喜欢的菜</text>
+    <text class="page-copy">你们各自选择，我们自动合成今晚菜单</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="status-state">正在准备菜谱…</view>
+  <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
+  <view wx:else class="recipe-grid">
+    <view wx:for="{{recipes}}" wx:key="id" class="recipe-card">
+      <image class="recipe-image" src="{{item.imagePath}}" mode="aspectFill" />
+      <view class="recipe-body">
+        <text class="recipe-name">{{item.name}}</text>
+        <text class="recipe-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
+      </view>
+    </view>
+  </view>
+</view>
+<bottom-nav active="recipes" />

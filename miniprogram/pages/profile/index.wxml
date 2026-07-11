@@ -1,0 +1,17 @@
+<view class="profile-page">
+  <view class="page-heading">
+    <text class="eyebrow">我们的空间</text>
+    <text class="page-title">我的小家</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="status-state">正在读取小家…</view>
+  <view wx:elif="{{errorMessage}}" class="status-state status-state--error">{{errorMessage}}</view>
+  <view wx:elif="{{household}}" class="household-card">
+    <view class="household-icon"><t-icon name="home-filled" size="58rpx" color="#7B823B" /></view>
+    <text class="household-name">{{household.name}}</text>
+    <text class="household-meta">{{household.memberCount}} 位家庭成员</text>
+    <view class="divider" />
+    <button class="invite-button" bindtap="onInvitePartner">{{household.memberCount === 1 ? '邀请 TA 加入' : '查看邀请码'}}</button>
+  </view>
+</view>
+<bottom-nav active="profile" />

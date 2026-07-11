@@ -520,7 +520,7 @@ Run: `npm test -- menu-service.test.ts menu-state.test.ts && npm run typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 ```bash
 git add miniprogram/types miniprogram/services miniprogram/utils miniprogram/app.ts tests
@@ -543,7 +543,7 @@ git commit -m "feat: add dinner menu client services"
 - Consumes: Task 5 App methods and local `/assets/recipes/*.jpg` paths returned by the API.
 - Produces: navigable tonight, recipe selection, record list/detail and profile pages.
 
-- [ ] **Step 1: Add failing route/asset structure assertions**
+- [x] **Step 1: Add failing route/asset structure assertions**
 
 ```ts
 expect(appConfig.pages).toEqual(expect.arrayContaining([
@@ -555,27 +555,27 @@ for (const slug of recipeSlugs) {
 }
 ```
 
-- [ ] **Step 2: Run structure test and confirm missing routes/assets**
+- [x] **Step 2: Run structure test and confirm missing routes/assets**
 
 Run: `npm test -- project-structure.test.ts`
 
 Expected: FAIL.
 
-- [ ] **Step 3: Generate eight recipe thumbnails using imagegen**
+- [x] **Step 3: Generate eight recipe thumbnails using imagegen**
 
 Generate one isolated 1:1 image per approved dish: realistic Chinese home cooking, warm natural window light, three-quarter tabletop view, neutral ceramic plate, clean off-white background, no people, text, logo or watermark. Inspect each image, then place the final JPEGs under `miniprogram/assets/recipes/` using the exact slugs seeded by V4.
 
-- [ ] **Step 4: Implement route skeletons and bottom navigation**
+- [x] **Step 4: Implement route skeletons and bottom navigation**
 
 Use a consistent bottom navigation component or native tab configuration for “今晚、菜谱、记录、我的”. Every visible entry must navigate to a working page; no dead controls. Profile reuses `getHousehold` and links to the existing invite page.
 
-- [ ] **Step 5: Verify routes, types and assets**
+- [x] **Step 5: Verify routes, types and assets**
 
 Run: `npm test -- project-structure.test.ts && npm run typecheck && npm run lint`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 6**
+- [x] **Step 6: Commit Task 6**
 
 ```bash
 git add miniprogram/assets miniprogram/pages miniprogram/app.json tests/project-structure.test.ts

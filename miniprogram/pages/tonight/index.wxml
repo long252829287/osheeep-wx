@@ -14,3 +14,4 @@
     <button wx:if="{{household.memberCount === 1}}" class="primary-button" bindtap="onInvitePartner">邀请 TA 加入</button>
   </block>
 </view>
+<bottom-nav active="tonight" />

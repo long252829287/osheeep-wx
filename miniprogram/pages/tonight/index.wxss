@@ -1,7 +1,7 @@
 .tonight-page {
   box-sizing: border-box;
   min-height: 100vh;
-  padding: 96rpx 56rpx calc(48rpx + env(safe-area-inset-bottom));
+  padding: 96rpx 56rpx calc(156rpx + env(safe-area-inset-bottom));
   text-align: center;
 }
 

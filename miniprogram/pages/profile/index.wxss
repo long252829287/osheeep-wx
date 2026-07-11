@@ -1,0 +1,12 @@
+.profile-page { box-sizing: border-box; min-height: 100vh; padding: 54rpx 40rpx calc(150rpx + env(safe-area-inset-bottom)); }
+.eyebrow, .page-title, .household-name, .household-meta { display: block; }
+.eyebrow { color: #7b823b; font-size: 24rpx; font-weight: 650; letter-spacing: 3rpx; }
+.page-title { margin-top: 16rpx; font-size: 48rpx; font-weight: 750; }
+.status-state { padding: 180rpx 0; color: #77736b; text-align: center; font-size: 27rpx; }
+.status-state--error { color: #bd472b; }
+.household-card { margin-top: 62rpx; padding: 60rpx 42rpx 42rpx; border: 1rpx solid #e6dbc9; border-radius: 32rpx; background: #fffdf9; text-align: center; box-shadow: 0 16rpx 40rpx rgba(72, 55, 29, 0.06); }
+.household-icon { display: flex; width: 108rpx; height: 108rpx; align-items: center; justify-content: center; margin: 0 auto; border-radius: 54rpx; background: #f1f0dd; }
+.household-name { margin-top: 28rpx; font-size: 38rpx; font-weight: 750; }
+.household-meta { margin-top: 12rpx; color: #7c776f; font-size: 25rpx; }
+.divider { height: 1rpx; margin: 44rpx 0 32rpx; background: #ece2d3; }
+.invite-button { display: flex; min-height: 92rpx; align-items: center; justify-content: center; border: 2rpx solid #c84d20; border-radius: 22rpx; background: transparent; color: #c84d20; font-size: 29rpx; font-weight: 650; line-height: 92rpx; }

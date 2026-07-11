@@ -344,7 +344,7 @@ Run frontend: `npm test && npm run typecheck && npm run lint && npm run format:c
 
 Expected: 全部通过，两个仓库 `git status --short` 为空。
 
-- [ ] **Step 5: 推送两个 main 分支**
+- [x] **Step 5: 推送两个 main 分支**
 
 只有在用户明确要求推送时执行：
 

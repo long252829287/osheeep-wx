@@ -1,5 +1,6 @@
 import { createRuntimeConfig } from './config/environment';
 import { createAuthService, type LoginPort } from './services/auth-service';
+import { createAccountService } from './services/account-service';
 import { createHouseholdService } from './services/household-service';
 import { createMenuService } from './services/menu-service';
 import { createRecipeService } from './services/recipe-service';
@@ -34,7 +35,7 @@ const requestPort: RequestPort = {
   },
 };
 
-const loginPort: LoginPort = {
+const loginPort: { login: LoginPort } = {
   login: (options) => {
     wx.login({
       success: (result) => options.success?.({ code: result.code }),
@@ -54,6 +55,11 @@ const authService = createAuthService({
   request: requestClient.request,
   setAccessToken: session.setAccessToken,
 });
+const accountService = createAccountService({
+  login: loginPort.login,
+  request: requestClient.request,
+  clearSession: session.clear,
+});
 const householdService = createHouseholdService({
   request: requestClient.request,
 });
@@ -65,6 +71,7 @@ App({
   loginWithWechat: async () => {
     await authService.loginWithWechat();
   },
+  deleteAccount: accountService.deleteAccount,
   getHousehold: householdService.getCurrent,
   createHousehold: householdService.create,
   refreshInviteCode: householdService.refreshInviteCode,

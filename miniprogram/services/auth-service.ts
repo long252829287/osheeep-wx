@@ -1,30 +1,16 @@
 import type { AuthToken } from '../types/auth';
 import type { RequestInit } from '../types/api';
+import { requestWechatCode, type LoginPort } from './wechat-login';
 
-export interface LoginOptions {
-  success?: (result: { code: string }) => void;
-  fail?: (error: { errMsg: string }) => void;
-}
-
-export interface LoginPort {
-  login(options: LoginOptions): void;
-}
+export type { LoginPort } from './wechat-login';
 
 export const createAuthService = (options: {
-  login: LoginPort['login'];
+  login: LoginPort;
   request: (path: string, init?: RequestInit) => Promise<AuthToken>;
   setAccessToken: (token: string) => void;
 }) => ({
   loginWithWechat: async () => {
-    const code = await new Promise<string>((resolve, reject) => {
-      options.login({
-        success: (result) =>
-          result.code
-            ? resolve(result.code)
-            : reject(new Error('微信登录未返回 code')),
-        fail: (error) => reject(new Error(error.errMsg)),
-      });
-    });
+    const code = await requestWechatCode(options.login);
     const token = await options.request('/api/auth/wechat', {
       method: 'POST',
       data: { code },

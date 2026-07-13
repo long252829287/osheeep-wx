@@ -4,7 +4,8 @@ test('exchanges wx login code and stores the returned token', async () => {
   const setAccessToken = jest.fn();
   const service = createAuthService({
     login: (options) => options.success?.({ code: 'wx-code' }),
-    request: async (_path, init) => {
+    request: async (path, init) => {
+      expect(path).toBe('/api/auth/wechat');
       expect(init).toEqual({
         method: 'POST',
         data: { code: 'wx-code' },

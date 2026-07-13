@@ -30,6 +30,25 @@ test('adds auth headers and unwraps successful ApiResponse data', async () => {
   ).resolves.toEqual({ id: 7 });
 });
 
+test('unwraps a successful ApiResponse without data as undefined', async () => {
+  const request: RequestPort = {
+    request: (options) =>
+      options.success?.({
+        statusCode: 200,
+        data: { success: true },
+      }),
+  };
+  const client = createRequestClient({
+    request,
+    apiBaseUrl: 'https://api.test',
+    getAccessToken: () => 'token-1',
+  });
+
+  await expect(
+    client.request<void>('/api/users/me/deletion', { method: 'POST' }),
+  ).resolves.toBeUndefined();
+});
+
 test('clears session before exposing an unauthorized error', async () => {
   const events: string[] = [];
   const request: RequestPort = {

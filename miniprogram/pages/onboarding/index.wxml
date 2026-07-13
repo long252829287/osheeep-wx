@@ -42,9 +42,9 @@
       </label>
     </checkbox-group>
     <view class="legal-links">
-      <text class="legal-link" catchtap="onOpenUserAgreement">《用户协议》</text>
+      <button class="legal-link" plain catchtap="onOpenUserAgreement">《用户协议》</button>
       <text>和</text>
-      <text class="legal-link" catchtap="onOpenPrivacyPolicy">《隐私政策》</text>
+      <button class="legal-link" plain catchtap="onOpenPrivacyPolicy">《隐私政策》</button>
     </view>
     <text class="permission-note">首次登录不会自动获取手机号、头像、相册或定位权限</text>
   </view>

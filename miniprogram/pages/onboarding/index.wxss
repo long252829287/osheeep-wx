@@ -140,6 +140,7 @@
 
 .legal-links {
   display: flex;
+  align-items: center;
   justify-content: center;
   margin-top: 8rpx;
   color: #77746c;
@@ -148,8 +149,20 @@
 }
 
 .legal-link {
+  box-sizing: border-box;
+  min-height: 88rpx;
+  margin: 0;
+  padding: 12rpx 16rpx;
+  border: 0;
+  background: transparent;
   color: #b94b22;
+  font-size: 23rpx;
+  line-height: 1.6;
   text-decoration: underline;
+}
+
+.legal-link::after {
+  border: 0;
 }
 
 .permission-note {

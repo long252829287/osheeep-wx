@@ -2,6 +2,84 @@
 
 更新日期：2026-07-13
 
+> 这份文档是写给一个完全没有聊天上下文的新对话的。接手后先读本节和“踩坑记录”，再查看代码或继续开发。不要依赖上一段会话中的口头信息。
+
+## 0. 新对话接手摘要
+
+### 0.1 我们在做什么
+
+项目目标是把原有需求实现成一个名为“今晚吃什么”的微信小程序：两个人加入同一个“小家”，各自选择今晚想吃的菜，系统合并双方选择，双方可以确认、修改、完成晚餐菜单，并在历史记录中回看做过的菜。
+
+前端是独立仓库 `osheeep-wx`，后端继续使用已有的 Java 仓库 `osheeep-server`。用户已经明确决定不再使用旧 Node 后端，并要求两个仓库直接在 `main` 分支开发。服务器采用固定正式 JAR、systemd 和浅层目录，不使用每次部署一个 release 目录的方案。
+
+本轮工作的直接目标原本是：完成 MVP、部署 Java 后端、接入 `www.osheeep.com`、生成微信体验版并验证可用。这个目标已经达成。当前应进入“正式提审准备”，不是重新开发第一版，也不是立刻点击“提交审核”。
+
+### 0.2 已经完成了什么
+
+- MVP 核心流程已经开发：微信登录、创建/加入双人家庭、选菜、合并、确认、修改后撤销确认、重新确认、幂等完成、做饭记录和详情快照。
+- 小程序采用微信原生 TypeScript、WXML、WXSS；没有使用 Taro、uni-app、React 或 TDesign 运行时依赖。
+- 后端采用 `osheeep-server` 的 Java 21、Spring Boot 3.5.16、MySQL、Flyway、Redis、RabbitMQ、JWT。
+- 生产后端已经部署到 `82.156.49.122`，由 `osheeep-server.service` 管理，监听 `8080`。
+- Nginx 已把 `https://www.osheeep.com/api/**` 转发到 Spring Boot `8080`。
+- 旧 PM2 服务 `my-backend` 已删除，端口 `3000` 已释放；端口 `3100` 的 `osheeep-api` 是另一项既有服务，必须保留。
+- 小程序代码内名称、导航栏标题和开发者工具项目名已改为“今晚吃什么”。
+- 微信体验代码 `0.1.0` 已上传并设为体验版；`request` 合法域名已经配置为 `https://www.osheeep.com`。
+- 正确体验版首页路径是 `pages/onboarding/index`。用户已确认体验版能够打开且核心功能可用。
+- 前端最后一次完整验证为 12 个测试套件、44 项测试通过，TypeScript、ESLint、Prettier 通过；后端 77 项测试通过。
+- 两个仓库均使用 `main` 并已推送。开始新工作前仍应重新执行 `git status` 和与 `origin/main` 的同步检查。
+
+### 0.3 当前卡在哪里
+
+体验版没有技术阻塞，已经可用。当前尚未完成的是正式上架所需的产品和平台准备：
+
+1. 微信公众平台上的正式小程序名称可能仍是原账号名称，需要确认并按平台规则申请改成“今晚吃什么”。代码内改名不能替代平台改名。
+2. 需要补齐真实可访问的用户协议、隐私政策、微信隐私保护指引和隐私接口声明。
+3. 需要确认服务类目、主体信息、体验成员和审核材料。
+4. 需要至少在一台 iPhone 和一台 Android 上完成体验版双账号回归，并补充弱网验证。
+5. 正式上架前还应确认数据库备份恢复、日志脱敏、限流、告警和故障处理。
+
+因此当前不要直接点击“提交审核”。等上述项目完成并得到用户明确确认后，再提交审核。
+
+### 0.4 下一步计划
+
+建议新对话按以下顺序继续：
+
+1. 先检查两个仓库工作区、最新提交和远端同步状态，不要覆盖用户可能新增的修改。
+2. 登录微信公众平台，确认体验版确实是 `0.1.0`、首页路径为 `pages/onboarding/index`，并确认平台正式名称。平台操作遇到管理员扫码或二次验证时交给用户。
+3. 起草并落地用户协议、隐私政策、隐私保护指引和审核说明，逐项核对当前实际使用的微信接口与数据类型。
+4. 使用两个真实微信账号，在 iPhone 和 Android 上走完整闭环并记录结果。
+5. 做一次生产运维检查：systemd、健康检查、Nginx、日志、数据库备份和回滚流程。
+6. 所有提审清单完成后，再由用户决定是否点击“提交审核”。
+7. 正式版准备完成后，再进入自定义菜谱、图片上传、家庭成员管理、订阅提醒、监控和 CI/CD 等第二阶段功能。
+
+### 0.5 新对话开始时先执行
+
+```bash
+cd /Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx
+git status --short
+git log -5 --oneline
+git rev-list --left-right --count origin/main...main
+npm test
+npm run typecheck
+npm run lint
+npm run format:check
+
+cd /Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server
+git status --short
+git log -5 --oneline
+git rev-list --left-right --count origin/main...main
+```
+
+生产服务器只做检查时可使用：
+
+```bash
+ssh root@82.156.49.122
+systemctl status osheeep-server --no-pager
+curl --fail --silent http://127.0.0.1:8080/actuator/health
+```
+
+不要把 SSH、数据库、JWT 或微信 AppSecret 写进代码、文档、命令输出或聊天回复。
+
 ## 1. 当前交付状态
 
 本次“今晚吃什么”第一版核心闭环已经开发、联调和验收完成，生产后端已经部署，微信体验代码 `0.1.0` 已于 2026-07-13 上传成功。这里的“开发完成”指当前约定的 MVP 功能完成，不代表已经通过微信正式版审核。
@@ -36,10 +114,10 @@
 
 ## 2. 代码仓库
 
-| 项目       | 仓库                                                              | 本地目录                                                             | 分支   | 交付提交  |
-| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------ | --------- |
+| 项目       | 仓库                                                              | 本地目录                                                             | 分支   | 交付提交                      |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------ | ----------------------------- |
 | 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | 以 `origin/main` 最新提交为准 |
-| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `6307058` |
+| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `6307058`                     |
 
 两个仓库的 `main` 已推送并与 `origin/main` 同步。
 
@@ -306,3 +384,108 @@ systemctl reload nginx
 - [后端生产运维手册](https://github.com/long252829287/osheeep-server/blob/main/deploy/production/OPERATIONS.md)
 - [最终设计验收](../design-qa.md)
 - [最终四道菜截图](design/qa/record-detail-four-dishes-implemented.jpeg)
+
+## 15. 踩坑记录：不要再踩
+
+### 15.1 不要把旧体验版当成当前版本
+
+微信公众平台曾同时显示旧版本 `1.0.1.1` 和当前版本 `0.1.0`。旧体验版名称为“幻昼测试体验版”，首页路径是 `pages/index/main`，这不属于当前项目。
+
+当前项目的正确首页路径是：
+
+```text
+pages/onboarding/index
+```
+
+更换体验版时，应在 `0.1.0` 右侧下拉菜单选择“选为体验版”，不是点击“提交审核”。登录并完成家庭绑定后，代码会按状态进入 `pages/tonight/index`。
+
+### 15.2 微信开发者工具可能残留不存在的 TDesign 文件缓存
+
+上传时曾出现不存在的文件错误：
+
+```text
+miniprogram/miniprogram_npm/tdesign-miniprogram/action-sheet/action-sheet.js
+```
+
+仓库实际没有依赖这套 TDesign 文件，错误来自微信开发者工具的项目文件列表缓存。工具里的“清除项目文件列表缓存”当时没有真正清掉磁盘文件。最终处理方式是：完全退出微信开发者工具，先备份再移走对应项目的 `WeappCache/dirCache/.../fileCache.cfg`，重新打开项目让工具重建缓存。
+
+不要为了这个错误把 TDesign 安装回来，也不要在项目中伪造缺失文件。操作缓存前先备份，且缓存目录哈希可能随机器或项目变化，不能照抄固定哈希路径。
+
+### 15.3 `sitemap.json` 的 `rules` 不能是空数组
+
+上传曾因以下错误失败：
+
+```text
+Invalid SiteMap, sitemap错误，缺少rules字段
+```
+
+即使存在 `"rules": []`，平台仍认为无有效规则。当前已经改为：
+
+```json
+{
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}
+```
+
+`tests/project-structure.test.ts` 已增加契约测试，后续不要再改回空数组。
+
+### 15.4 开发版和体验/正式版的 API 地址不同
+
+环境映射已经固定：
+
+```text
+develop -> http://127.0.0.1:8080
+trial   -> https://www.osheeep.com
+release -> https://www.osheeep.com
+```
+
+开发者工具使用本地后端时可临时关闭合法域名校验，但这不能替代微信公众平台的 `request` 合法域名配置。不要让体验版或正式版请求 `127.0.0.1`。
+
+### 15.5 不要恢复旧 Node 后端或改错 Nginx
+
+`/api/**` 的唯一正式后端是 `osheeep-server` 的 Spring Boot `8080`。旧 `my-backend` 已明确废弃并从 PM2 删除，不需要保留，也不要重新启动端口 `3000`。
+
+`osheeep-api` 在 `3100` 上运行，是服务器上的另一项既有服务，本次没有修改它。改 Nginx 前必须备份配置，执行 `nginx -t` 通过后才能 reload。
+
+### 15.6 公网 API 返回 401 不代表后端故障
+
+业务接口需要 Bearer Token。未登录访问：
+
+```text
+https://www.osheeep.com/api/dinner/recipes
+```
+
+返回 Spring Security 的 `401 UNAUTHORIZED` 是预期行为，也能证明请求已经到达 Java 后端。判断服务健康应使用服务器本机的 `/actuator/health`，不要把未授权 401 当成 502 或宕机。
+
+### 15.7 服务器目录和部署方式已经定型
+
+用户明确拒绝每次部署一个独立版本目录，也不希望维护复杂部署脚本。正式服务器只保留固定路径：
+
+```text
+/opt/osheeep-server/osheeep-server.jar
+```
+
+部署前把旧 JAR 复制为带时间戳的备份，再替换固定 JAR，然后直接执行：
+
+```bash
+systemctl restart osheeep-server
+```
+
+不要擅自改成多层 `releases/current`、容器编排或复杂脚本方案。完整命令以 `osheeep-server/deploy/production/OPERATIONS.md` 为准。
+
+### 15.8 微信公众平台操作可能无法自动化
+
+本次自动化访问 `mp.weixin.qq.com` 被平台安全策略拒绝，最终由用户手工完成合法域名和体验版设置。不要绕过平台限制。涉及扫码、二次验证、名称申请和最终提交审核时，应明确交给管理员操作。
+
+### 15.9 正式名称和代码内名称是两件事
+
+代码内已经显示“今晚吃什么”，但微信客户端最终展示的正式小程序名称由微信公众平台账号设置决定。不要因为开发者工具标题已经改变，就断言平台名称也已完成修改。
+
+### 15.10 不要泄露或提交密钥
+
+生产环境变量位于服务器 `/opt/osheeep-server/osheeep-server.env`，文件权限已限制。仓库中只能保留变量名和示例，不得写入真实数据库密码、JWT Secret、微信 AppSecret 或 SSH 凭据。新的对话即使能从历史聊天中看到凭据，也不能把它们复制到 `HANDOFF.md`、Git 提交或最终回复中。

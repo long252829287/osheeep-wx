@@ -1,10 +1,10 @@
-# osheeep 微信小程序交接文档
+# “今晚吃什么”微信小程序交接文档
 
 更新日期：2026-07-13
 
 ## 1. 当前交付状态
 
-本次“今晚菜单”第一版核心闭环已经开发、联调和验收完成，可以继续进入体验版真机测试阶段。这里的“开发完成”指当前约定的 MVP 功能完成，不代表已经具备直接提交微信审核的全部生产配置。
+本次“今晚吃什么”第一版核心闭环已经开发、联调和验收完成，当前正在完成生产后端和微信体验版部署。这里的“开发完成”指当前约定的 MVP 功能完成，不代表已经通过微信正式版审核。
 
 已完成的用户流程：
 
@@ -154,10 +154,12 @@ npm install
 - TypeScript 编译插件。
 - 当前真实 AppID。
 
-本地开发的 API 地址位于 `miniprogram/config/environment.ts`：
+API 地址由 `miniprogram/config/environment.ts` 根据微信环境自动选择：
 
 ```ts
-apiBaseUrl: 'http://127.0.0.1:8080';
+develop -> http://127.0.0.1:8080
+trial   -> https://www.osheeep.com
+release -> https://www.osheeep.com
 ```
 
 在开发者工具中联调本地 HTTP 服务时，需要在“详情 → 本地设置”中临时勾选“不校验合法域名、web-view、TLS 版本以及 HTTPS 证书”。该设置只用于本地开发，不能代替正式环境配置。
@@ -174,7 +176,7 @@ npm run lint
 npm run format:check
 ```
 
-交付时结果：11 个测试套件、39 项测试全部通过，类型、Lint 和格式检查通过。
+交付时结果：12 个测试套件、43 项测试全部通过，类型、Lint 和格式检查通过。
 
 后端：
 
@@ -185,7 +187,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn test
 ```
 
-交付时结果：74 项测试全部通过，0 failure、0 error。
+交付时结果：77 项测试全部通过，0 failure、0 error。
 
 ## 8. 主要 API
 
@@ -215,23 +217,19 @@ mvn test
 - WebSocket 实时同步；当前使用 8 秒轮询。
 - 订阅消息或晚餐提醒。
 - 家庭成员退出、解散、踢出和管理员能力。
-- 正式环境 API 地址自动切换。
 - CI/CD、生产告警、业务指标和崩溃上报。
 
 ## 10. 正式上架前清单
 
 以下事项不属于本次代码闭环，但正式提交微信审核前必须完成：
 
-1. 部署 `osheeep-server` 的生产实例，使用独立生产数据库、Redis、RabbitMQ 和密钥。
-2. 为 API 配置已备案域名和有效 HTTPS 证书，TLS 配置满足微信要求。
-3. 将生产 API 域名加入微信公众平台“小程序 → 开发管理 → 开发设置 → 服务器域名 → request 合法域名”。
-4. 将 `environment.ts` 中的本地地址改为按开发版、体验版和正式版区分的配置，避免提交时仍请求 `127.0.0.1`。
-5. 在微信公众平台确认 AppID、AppSecret、服务类目、开发者和体验成员配置。
-6. 补齐可实际访问的用户协议、隐私保护指引和隐私接口声明；当前页面只展示说明文字。
-7. 检查敏感权限。当前版本不获取手机号、相册或定位，后续新增能力时应按最小权限原则申请。
-8. 在至少一台 iPhone 和一台 Android 真机上完成双账号体验版回归。
-9. 验证生产环境数据库备份、恢复、日志脱敏、限流和告警。
-10. 在开发者工具执行“上传”，到微信公众平台生成体验版，再提交审核和发布。
+1. 将生产 API 域名加入微信公众平台“小程序 → 开发管理 → 开发设置 → 服务器域名 → request 合法域名”。
+2. 在微信公众平台确认 AppID、AppSecret、服务类目、开发者和体验成员配置。
+3. 补齐可实际访问的用户协议、隐私保护指引和隐私接口声明；当前页面只展示说明文字。
+4. 检查敏感权限。当前版本不获取手机号、相册或定位，后续新增能力时应按最小权限原则申请。
+5. 在至少一台 iPhone 和一台 Android 真机上完成双账号体验版回归。
+6. 验证生产环境数据库备份、恢复、日志脱敏、限流和告警。
+7. 在开发者工具执行“上传”，到微信公众平台生成体验版，再提交审核和发布。
 
 ## 11. 建议的下一阶段
 
@@ -249,5 +247,8 @@ mvn test
 - [产品与界面规格](superpowers/specs/2026-07-11-osheeep-wx-design.md)
 - [今晚菜单核心规格](superpowers/specs/2026-07-11-tonight-menu-core-design.md)
 - [今晚菜单实施计划](superpowers/plans/2026-07-11-tonight-menu-core.md)
+- [体验版部署规格](superpowers/specs/2026-07-13-experience-release-deployment-design.md)
+- [体验版部署实施计划](superpowers/plans/2026-07-13-experience-release-deployment.md)
+- [后端生产运维手册](https://github.com/long252829287/osheeep-server/blob/main/deploy/production/OPERATIONS.md)
 - [最终设计验收](../design-qa.md)
 - [最终四道菜截图](design/qa/record-detail-four-dishes-implemented.jpeg)

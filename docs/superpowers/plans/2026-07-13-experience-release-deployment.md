@@ -38,7 +38,7 @@
 - Consumes: `application.yml` 中的端口、Actuator 和 Springdoc 配置；`.env.example` 中的环境变量名称。
 - Produces: `prod` profile、滚动文件日志、可复制到服务器的 systemd 单元和运维说明。
 
-- [ ] **Step 1: 写失败的生产部署契约测试**
+- [x] **Step 1: 写失败的生产部署契约测试**
 
 创建 `ProductionDeploymentContractTest.java`，读取四个部署文件并断言：
 
@@ -86,7 +86,7 @@ class ProductionDeploymentContractTest {
 }
 ```
 
-- [ ] **Step 2: 运行测试并确认部署文件缺失**
+- [x] **Step 2: 运行测试并确认部署文件缺失**
 
 Run:
 
@@ -97,7 +97,7 @@ mvn -Dtest=ProductionDeploymentContractTest test
 
 Expected: FAIL，提示 `application-prod.yml` 或 `deploy/production` 文件不存在。
 
-- [ ] **Step 3: 创建生产 Profile**
+- [x] **Step 3: 创建生产 Profile**
 
 `application-prod.yml` 使用与 `local` 相同的外部基础设施变量，并添加优雅关闭、代理头和滚动日志：
 
@@ -151,7 +151,7 @@ logging:
       clean-history-on-start: true
 ```
 
-- [ ] **Step 4: 创建 systemd 单元模板**
+- [x] **Step 4: 创建 systemd 单元模板**
 
 `deploy/production/osheeep-server.service`：
 
@@ -180,7 +180,7 @@ UMask=0027
 WantedBy=multi-user.target
 ```
 
-- [ ] **Step 5: 创建完整运维手册**
+- [x] **Step 5: 创建完整运维手册**
 
 `deploy/production/OPERATIONS.md` 必须逐条给出可复制命令：架构与端口、目录用途、Maven 测试和打包、SCP 上传、备份、原子替换、systemd、健康检查、日志查询、Nginx、环境变量权限、手工回滚、备份清理，以及端口占用、数据库失败、微信登录失败、内存不足和 Nginx 502 排查。
 
@@ -197,7 +197,7 @@ systemctl status osheeep-server --no-pager
 curl --fail --silent http://127.0.0.1:8080/actuator/health
 ```
 
-- [ ] **Step 6: 运行后端契约测试和全量测试**
+- [x] **Step 6: 运行后端契约测试和全量测试**
 
 Run:
 
@@ -209,7 +209,7 @@ mvn test
 
 Expected: 契约测试 PASS；全量测试 0 failure、0 error。
 
-- [ ] **Step 7: 提交后端生产部署资产**
+- [x] **Step 7: 提交后端生产部署资产**
 
 ```bash
 cd ../osheeep-server
@@ -236,7 +236,7 @@ git commit -m "ops: add production deployment assets"
 - Consumes: `wx.getAccountInfoSync().miniProgram.envVersion`，值为 `develop | trial | release`。
 - Produces: `resolveApiBaseUrl(envVersion)`、`createRuntimeConfig(envVersion)`；统一品牌“今晚吃什么”。
 
-- [ ] **Step 1: 写失败的环境和品牌测试**
+- [x] **Step 1: 写失败的环境和品牌测试**
 
 `tests/environment.test.ts`：
 
@@ -272,13 +272,13 @@ test('uses the approved product name in runtime surfaces', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试并确认失败**
+- [x] **Step 2: 运行测试并确认失败**
 
 Run: `npm test -- --runInBand tests/environment.test.ts tests/project-structure.test.ts`
 
 Expected: FAIL，因为 `resolveApiBaseUrl` 不存在且旧品牌仍存在。
 
-- [ ] **Step 3: 实现环境解析并接入 App**
+- [x] **Step 3: 实现环境解析并接入 App**
 
 `environment.ts`：
 
@@ -307,7 +307,7 @@ const runtimeConfig = createRuntimeConfig(
 
 页面继续消费 App 中已经配置好的服务，不重复判断环境。
 
-- [ ] **Step 4: 统一代码内品牌**
+- [x] **Step 4: 统一代码内品牌**
 
 - `project.config.json` 的 `projectname` 改为 `今晚吃什么`。
 - onboarding JSON 标题和 WXML brand 改为 `今晚吃什么`。
@@ -315,7 +315,7 @@ const runtimeConfig = createRuntimeConfig(
 - `docs/HANDOFF.md` 更新环境选择、生产域名和部署手册链接。
 - 不修改历史设计规格中的“产品工作名”。
 
-- [ ] **Step 5: 运行前端完整验证**
+- [x] **Step 5: 运行前端完整验证**
 
 Run:
 

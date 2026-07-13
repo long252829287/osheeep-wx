@@ -24,7 +24,7 @@
 
   <block wx:else>
     <view class="intro">
-      <text class="eyebrow">双人协商桌</text>
+      <text class="eyebrow">今晚吃什么</text>
       <text class="intro-title">{{state === 'existing' ? '邀请 TA 加入小家' : '创建我们的小家'}}</text>
       <text class="intro-copy">{{state === 'existing' ? '生成一个新的 24 小时邀请码' : '建立只属于你们两个人的今晚菜单空间'}}</text>
     </view>

@@ -1,4 +1,4 @@
-import { runtimeConfig } from './config/environment';
+import { createRuntimeConfig } from './config/environment';
 import { createAuthService, type LoginPort } from './services/auth-service';
 import { createHouseholdService } from './services/household-service';
 import { createMenuService } from './services/menu-service';
@@ -6,6 +6,10 @@ import { createRecipeService } from './services/recipe-service';
 import { createRecordService } from './services/record-service';
 import { createRequestClient, type RequestPort } from './services/request';
 import { sessionStore } from './state/session';
+
+const runtimeConfig = createRuntimeConfig(
+  wx.getAccountInfoSync().miniProgram.envVersion,
+);
 
 const session = sessionStore({
   getStorageSync: <T>(key: string) => wx.getStorageSync<T>(key),

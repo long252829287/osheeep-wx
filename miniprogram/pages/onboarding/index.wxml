@@ -32,10 +32,20 @@
     <button
       class="primary"
       loading="{{loading}}"
-      disabled="{{loading}}"
+      disabled="{{loading || !agreementAccepted}}"
       bindtap="onContinue"
     >微信登录并继续</button>
-    <text class="privacy">登录即表示你已阅读并同意《用户协议》和《隐私保护指引》</text>
-    <text class="permission-note">首次登录不会自动获取手机号或相册权限</text>
+    <checkbox-group class="agreement" bindchange="onAgreementChange">
+      <label class="agreement-row">
+        <checkbox value="accepted" checked="{{agreementAccepted}}" color="#CE5928" />
+        <text>我已阅读并同意</text>
+      </label>
+    </checkbox-group>
+    <view class="legal-links">
+      <text class="legal-link" catchtap="onOpenUserAgreement">《用户协议》</text>
+      <text>和</text>
+      <text class="legal-link" catchtap="onOpenPrivacyPolicy">《隐私政策》</text>
+    </view>
+    <text class="permission-note">首次登录不会自动获取手机号、头像、相册或定位权限</text>
   </view>
 </view>

@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/onboarding/index",
+    "pages/legal/user-agreement/index",
+    "pages/legal/privacy-policy/index",
     "pages/household-create/index",
     "pages/household-join/index",
     "pages/tonight/index",

@@ -1,0 +1,9 @@
+<view class="legal-page">
+  <text class="legal-title">{{document.title}}</text>
+  <text class="legal-date">更新日期：{{document.updatedAt}}</text>
+  <text class="legal-date">生效日期：{{document.effectiveAt}}</text>
+  <view wx:for="{{document.sections}}" wx:key="heading" class="legal-section">
+    <text class="legal-heading">{{item.heading}}</text>
+    <text wx:for="{{item.paragraphs}}" wx:for-item="paragraph" wx:key="*this" class="legal-paragraph">{{paragraph}}</text>
+  </view>
+</view>

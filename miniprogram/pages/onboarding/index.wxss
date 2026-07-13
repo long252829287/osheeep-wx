@@ -118,7 +118,6 @@
   line-height: 1.5;
 }
 
-.privacy,
 .permission-note {
   display: block;
   color: #77746c;
@@ -126,8 +125,31 @@
   line-height: 1.6;
 }
 
-.privacy {
+.agreement {
   margin-top: 28rpx;
+}
+
+.agreement-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  color: #66625b;
+  font-size: 24rpx;
+}
+
+.legal-links {
+  display: flex;
+  justify-content: center;
+  margin-top: 8rpx;
+  color: #77746c;
+  font-size: 23rpx;
+  line-height: 1.6;
+}
+
+.legal-link {
+  color: #b94b22;
+  text-decoration: underline;
 }
 
 .permission-note {

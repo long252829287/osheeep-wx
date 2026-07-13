@@ -1,0 +1,16 @@
+<view class="privacy-page">
+  <text class="page-title">隐私与账户</text>
+  <view class="privacy-card">
+    <text class="section-title">我们处理的信息</text>
+    <text class="section-copy">微信身份标识、家庭成员关系、邀请码、选菜与做饭记录，以及必要的运行日志。</text>
+    <text class="section-copy">不获取手机号、微信昵称头像、相册、定位或通讯录。</text>
+  </view>
+  <view class="privacy-card">
+    <text class="section-title">运营与联系</text>
+    <text class="section-copy">运营主体：{{operatorName}}</text>
+    <text class="section-copy">隐私联系邮箱：{{privacyEmail}}</text>
+  </view>
+  <button class="link-button" bindtap="onOpenUserAgreement">用户协议</button>
+  <button class="link-button" bindtap="onOpenPrivacyPolicy">隐私政策</button>
+  <button class="danger-link" bindtap="onOpenDeletion">注销账号</button>
+</view>

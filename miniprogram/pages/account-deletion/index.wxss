@@ -1,0 +1,65 @@
+.deletion-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 54rpx 40rpx calc(72rpx + env(safe-area-inset-bottom));
+}
+.page-title,
+.warning,
+.impact-card text,
+.error {
+  display: block;
+}
+.page-title {
+  font-size: 48rpx;
+  font-weight: 750;
+}
+.warning {
+  margin-top: 16rpx;
+  color: #b83b2f;
+  font-size: 27rpx;
+  font-weight: 700;
+}
+.impact-card {
+  margin-top: 32rpx;
+  padding: 32rpx;
+  border: 1rpx solid #e5b7ae;
+  border-radius: 28rpx;
+  background: #fff2ef;
+}
+.impact-card text {
+  margin-top: 12rpx;
+  color: #674943;
+  font-size: 27rpx;
+  line-height: 1.65;
+}
+.impact-card text:first-child {
+  margin-top: 0;
+}
+.understanding-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 34rpx;
+  color: #57534d;
+  font-size: 26rpx;
+}
+.error {
+  margin-top: 24rpx;
+  color: #b83b2f;
+  font-size: 25rpx;
+  line-height: 1.5;
+}
+.delete-button {
+  min-height: 100rpx;
+  margin-top: 36rpx;
+  border-radius: 24rpx;
+  background: #b83b2f;
+  color: #fff;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 100rpx;
+}
+.delete-button[disabled] {
+  background: #d7aaa3;
+  color: rgba(255, 255, 255, 0.9);
+}

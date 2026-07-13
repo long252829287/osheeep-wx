@@ -17,5 +17,6 @@
     <view class="divider" />
     <button class="invite-button" bindtap="onInvitePartner">{{household.memberCount === 1 ? '邀请 TA 加入' : '查看邀请码'}}</button>
   </view>
+  <button class="privacy-entry" bindtap="onOpenPrivacyCenter">隐私与账户</button>
 </view>
 <bottom-nav active="profile" />

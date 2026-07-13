@@ -9,7 +9,9 @@
     "pages/recipes/index",
     "pages/records/index",
     "pages/record-detail/index",
-    "pages/profile/index"
+    "pages/profile/index",
+    "pages/privacy-center/index",
+    "pages/account-deletion/index"
   ],
   "window": {
     "navigationBarTitleText": "今晚吃什么",

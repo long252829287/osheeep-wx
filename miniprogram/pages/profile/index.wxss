@@ -14,3 +14,16 @@
 .household-meta { margin-top: 12rpx; color: #7c776f; font-size: 25rpx; }
 .divider { height: 1rpx; margin: 44rpx 0 32rpx; background: #ece2d3; }
 .invite-button { display: flex; min-height: 92rpx; align-items: center; justify-content: center; border: 2rpx solid #c84d20; border-radius: 22rpx; background: transparent; color: #c84d20; font-size: 29rpx; font-weight: 650; line-height: 92rpx; }
+.privacy-entry {
+  display: flex;
+  min-height: 92rpx;
+  align-items: center;
+  justify-content: center;
+  margin-top: 28rpx;
+  border: 1rpx solid #e6dbc9;
+  border-radius: 22rpx;
+  background: #fffdf9;
+  color: #5e5a53;
+  font-size: 29rpx;
+  line-height: 92rpx;
+}

@@ -26,4 +26,8 @@ Page({
   onInvitePartner() {
     wx.navigateTo({ url: '/pages/household-create/index' });
   },
+
+  onOpenPrivacyCenter() {
+    wx.navigateTo({ url: '/pages/privacy-center/index' });
+  },
 });

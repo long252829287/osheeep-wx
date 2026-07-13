@@ -1,0 +1,51 @@
+.privacy-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 54rpx 40rpx calc(72rpx + env(safe-area-inset-bottom));
+}
+.page-title,
+.section-title,
+.section-copy {
+  display: block;
+}
+.page-title {
+  font-size: 48rpx;
+  font-weight: 750;
+}
+.privacy-card {
+  margin-top: 28rpx;
+  padding: 32rpx;
+  border: 1rpx solid #e6dbc9;
+  border-radius: 28rpx;
+  background: #fffdf9;
+}
+.section-title {
+  color: #5f6935;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.section-copy {
+  margin-top: 14rpx;
+  color: #625f58;
+  font-size: 26rpx;
+  line-height: 1.7;
+}
+.link-button,
+.danger-link {
+  display: flex;
+  min-height: 92rpx;
+  align-items: center;
+  margin-top: 20rpx;
+  border-radius: 22rpx;
+  background: #fffdf9;
+  font-size: 29rpx;
+  line-height: 92rpx;
+}
+.link-button {
+  color: #b94b22;
+}
+.danger-link {
+  margin-top: 42rpx;
+  border: 1rpx solid #e2b4aa;
+  color: #b83b2f;
+}

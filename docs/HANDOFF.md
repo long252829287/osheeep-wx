@@ -4,7 +4,14 @@
 
 ## 1. 当前交付状态
 
-本次“今晚吃什么”第一版核心闭环已经开发、联调和验收完成，当前正在完成生产后端和微信体验版部署。这里的“开发完成”指当前约定的 MVP 功能完成，不代表已经通过微信正式版审核。
+本次“今晚吃什么”第一版核心闭环已经开发、联调和验收完成，生产后端已经部署，微信体验代码 `0.1.0` 已于 2026-07-13 上传成功。这里的“开发完成”指当前约定的 MVP 功能完成，不代表已经通过微信正式版审核。
+
+体验版发布状态：
+
+- 已完成：生产 JAR、systemd、日志、Nginx、HTTPS 公网 API、旧 Node 下线、体验代码上传。
+- 待在微信公众平台手工完成：把 `https://www.osheeep.com` 加入 `request` 合法域名，并把开发版本 `0.1.0` 设为体验版。
+- 待完成：iPhone、Android 双账号体验版真机回归。
+- 代码内产品名和开发者工具项目名已统一为“今晚吃什么”；微信公众平台显示的小程序正式名称仍需在平台按名称规则单独确认或申请。
 
 已完成的用户流程：
 
@@ -30,8 +37,8 @@
 
 | 项目       | 仓库                                                              | 本地目录                                                             | 分支   | 交付提交  |
 | ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------ | --------- |
-| 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | `a7791f4` |
-| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `dfe526a` |
+| 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | 以 `origin/main` 最新提交为准 |
+| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `6307058` |
 
 两个仓库的 `main` 已推送并与 `origin/main` 同步。
 
@@ -176,7 +183,7 @@ npm run lint
 npm run format:check
 ```
 
-交付时结果：12 个测试套件、43 项测试全部通过，类型、Lint 和格式检查通过。
+交付时结果：12 个测试套件、44 项测试全部通过，类型、Lint 和格式检查通过。
 
 后端：
 
@@ -219,30 +226,76 @@ mvn test
 - 家庭成员退出、解散、踢出和管理员能力。
 - CI/CD、生产告警、业务指标和崩溃上报。
 
-## 10. 正式上架前清单
+## 10. 生产部署与日常运维
+
+生产入口：
+
+- 网站和 API 域名：`https://www.osheeep.com`
+- Nginx：`/api/**` 反向代理到 `127.0.0.1:8080`
+- Spring Boot 服务：`osheeep-server.service`
+- 旧 Node `my-backend`：已从 PM2 删除，端口 `3000` 已释放
+- 既有 `osheeep-api`：继续运行在端口 `3100`，未被本次部署修改
+
+服务器固定目录：
+
+```text
+/opt/osheeep-server/
+├── osheeep-server.jar       # 当前唯一正式 JAR
+├── osheeep-server.env       # 生产环境变量和密钥，禁止提交 Git
+├── OPERATIONS.md            # 完整运维手册
+├── backup/                  # 部署前按时间命名的旧 JAR
+└── logs/                    # 应用滚动日志
+```
+
+最常用命令：
+
+```bash
+systemctl status osheeep-server --no-pager
+systemctl restart osheeep-server
+journalctl -u osheeep-server -n 200 --no-pager
+tail -f /opt/osheeep-server/logs/application.log
+curl --fail --silent http://127.0.0.1:8080/actuator/health
+nginx -t
+systemctl reload nginx
+```
+
+部署新 JAR 前必须先把当前 JAR 复制到 `backup/osheeep-server-YYYYMMDD-HHmmss.jar`，再替换固定文件并执行 `systemctl restart osheeep-server`。完整的打包、上传、替换、验证、日志、回滚和故障排查命令见后端仓库的 `deploy/production/OPERATIONS.md`。
+
+## 11. 微信体验版后台操作
+
+体验代码已上传，版本号为 `0.1.0`。微信公众平台禁止本次自动化访问，以下两项由管理员手工完成：
+
+1. 登录 <https://mp.weixin.qq.com/>，选择当前小程序。
+2. 进入“开发管理 → 开发设置 → 服务器域名”，在 `request` 合法域名中加入 `https://www.osheeep.com`；不要填写 `/api` 路径。
+3. 进入“管理 → 版本管理 → 开发版本”，找到 `0.1.0`，点击“选为体验版”。
+4. 确认体验成员；让两个微信账号分别扫码进入体验版。
+5. 真机验证登录、创建/加入小家、分别选菜、合并、确认、修改后重确认、完成和记录回看。
+
+如果正式名称尚不是“今晚吃什么”，到小程序设置中按平台规则申请改名；代码内名称已经完成修改。
+
+## 12. 正式上架前清单
 
 以下事项不属于本次代码闭环，但正式提交微信审核前必须完成：
 
-1. 将生产 API 域名加入微信公众平台“小程序 → 开发管理 → 开发设置 → 服务器域名 → request 合法域名”。
+1. 确认生产 API 域名已加入微信公众平台“小程序 → 开发管理 → 开发设置 → 服务器域名 → request 合法域名”。
 2. 在微信公众平台确认 AppID、AppSecret、服务类目、开发者和体验成员配置。
 3. 补齐可实际访问的用户协议、隐私保护指引和隐私接口声明；当前页面只展示说明文字。
 4. 检查敏感权限。当前版本不获取手机号、相册或定位，后续新增能力时应按最小权限原则申请。
 5. 在至少一台 iPhone 和一台 Android 真机上完成双账号体验版回归。
 6. 验证生产环境数据库备份、恢复、日志脱敏、限流和告警。
-7. 在开发者工具执行“上传”，到微信公众平台生成体验版，再提交审核和发布。
+7. 当前 `0.1.0` 已上传；真机回归后提交审核并发布。
 
-## 11. 建议的下一阶段
+## 13. 建议的下一阶段
 
 推荐按以下顺序继续：
 
-1. 生产/体验环境配置与 HTTPS 域名接入。
-2. 真机双账号回归和弱网测试。
-3. 用户协议、隐私政策及审核材料。
-4. 自定义菜谱和图片上传。
-5. 家庭成员管理、提醒和订阅消息。
-6. CI、监控、日志和数据备份。
+1. 完成微信后台两项配置并做真机双账号回归和弱网测试。
+2. 用户协议、隐私政策及审核材料。
+3. 自定义菜谱和图片上传。
+4. 家庭成员管理、提醒和订阅消息。
+5. CI、监控、日志和数据备份。
 
-## 12. 相关文档
+## 14. 相关文档
 
 - [产品与界面规格](superpowers/specs/2026-07-11-osheeep-wx-design.md)
 - [今晚菜单核心规格](superpowers/specs/2026-07-11-tonight-menu-core-design.md)

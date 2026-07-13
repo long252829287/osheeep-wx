@@ -43,6 +43,14 @@ test('declares every dinner menu route and bundled recipe image', () => {
   }
 });
 
+test('declares a valid default sitemap rule for upload', () => {
+  const sitemap = JSON.parse(
+    readFileSync(resolve(root, 'miniprogram/sitemap.json'), 'utf8'),
+  ) as { rules?: Array<{ action?: string; page?: string }> };
+
+  expect(sitemap.rules).toEqual([{ action: 'allow', page: '*' }]);
+});
+
 test.each([
   'miniprogram/app.ts',
   'miniprogram/app.wxss',

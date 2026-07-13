@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="brand">今晚吃什么</view>
+  <view class="brand" aria-label="今晚吃什么">今晚吃什么</view>
 
   <view class="hero">
     <view class="title">

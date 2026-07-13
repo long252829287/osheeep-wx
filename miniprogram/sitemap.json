@@ -1,4 +1,9 @@
 {
   "desc": "Osheeep 微信小程序页面索引",
-  "rules": []
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
 }

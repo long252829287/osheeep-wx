@@ -13,7 +13,7 @@
 - `osheeep-server` 是唯一正式后端，现有 Node 后端已经废弃。
 - Nginx 的全部 `/api/**` 流量一次性切换到 Spring Boot，不采用长期路径拆分。
 - `www.osheeep.com/` 继续提供现有静态网站。
-- 旧 Node 进程在首次体验版观察期内暂时保持运行，但不再接收 Nginx 流量，只作为紧急回滚入口；确认稳定后再停止。
+- 新 Spring Boot 公网验证通过后，停止并从 PM2 删除占用端口 `3000` 的旧 `my-backend`；不保留旧 Node 后端作为正式或回滚服务。
 - 服务器只保留一个固定名称的正式 JAR，不使用多层 release 目录。
 - 每次替换 JAR 前，把上一个正式 JAR 按日期时间备份。
 - 不创建 `deploy.sh` 和 `rollback.sh`；日常服务管理直接使用 `systemctl`。
@@ -260,7 +260,7 @@ systemctl restart osheeep-server
 curl --fail --silent http://127.0.0.1:8080/actuator/health
 ```
 
-如果问题来自 Nginx，则恢复 `/opt/deploy-backups/` 中的 Nginx 配置，执行 `nginx -t` 后平滑重载。
+如果问题来自 Nginx 配置，则根据 `/opt/deploy-backups/` 中的备份修复配置，执行 `nginx -t` 后平滑重载。应用版本问题始终通过恢复上一版 Spring Boot JAR 回滚，不再回退到 Node 后端。
 
 ## 12. Nginx 切换
 
@@ -372,5 +372,5 @@ cp -a /etc/nginx/conf.d/osheeep.com.conf \
 6. 启动 Spring Boot，完成本机健康检查。
 7. 备份并切换 Nginx 的全部 `/api/` 流量。
 8. 完成公网 API 和微信登录验证。
-9. 配置微信合法域名并上传 `0.1.0` 体验版。
-10. 双账号真机回归；稳定后停止旧 Node 后端。
+9. 停止并从 PM2 删除旧 `my-backend`，确认端口 `3000` 已释放；不删除与本次迁移无关的端口 `3100` 服务。
+10. 配置微信合法域名并上传 `0.1.0` 体验版，完成双账号真机回归。

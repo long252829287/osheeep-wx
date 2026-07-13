@@ -654,7 +654,7 @@ git commit -m "feat: implement collaborative dinner menu"
 - Consumes: both completed repositories, two WeChat developer accounts and local profile.
 - Produces: verified A/B menu flow and synchronized pushed `main` branches.
 
-- [ ] **Step 1: Run fresh automated verification**
+- [x] **Step 1: Run fresh automated verification**
 
 Run backend: `cd ../osheeep-server && mvn test`
 
@@ -662,28 +662,28 @@ Run frontend: `npm test && npm run typecheck && npm run lint && npm run format:c
 
 Expected: both commands exit 0.
 
-- [ ] **Step 2: Start local backend and apply V4**
+- [x] **Step 2: Start local backend and apply V4**
 
 Run: `cd ../osheeep-server && set -a; source .env.local; set +a; mvn org.springframework.boot:spring-boot-maven-plugin:3.5.16:run -Dspring-boot.run.profiles=local`
 
 Expected: Flyway reports schema version 4 and `/actuator/health` returns `UP`.
 
-- [ ] **Step 3: Complete two-account behavioral acceptance**
+- [x] **Step 3: Complete two-account behavioral acceptance**
 
 Use A to select 番茄炒蛋 and 小炒黄牛肉; use B to select 番茄炒蛋 and 紫菜蛋花汤. Verify both clients show three merged dishes and 番茄炒蛋 as “都想吃”. Confirm as either account, modify as the other, reconfirm, then tap complete from both clients and verify only one record ID exists.
 
-- [ ] **Step 4: Complete visual acceptance**
+- [x] **Step 4: Complete visual acceptance**
 
 Capture 390px empty, single-user, merged draft, confirmed, reconfirm, completed record and conflict states. Check 375 and 430px for horizontal overflow, fixed action overlap and safe-area problems. `design-qa.md` must end with `final result: passed` and contain no unresolved P0/P1/P2 finding.
 
-- [ ] **Step 5: Commit acceptance records**
+- [x] **Step 5: Commit acceptance records**
 
 ```bash
 git add docs/superpowers/plans/2026-07-11-tonight-menu-core.md design-qa.md
 git commit -m "docs: complete dinner menu acceptance"
 ```
 
-- [ ] **Step 6: Push only after explicit user authorization**
+- [x] **Step 6: Push only after explicit user authorization**
 
 ```bash
 git push origin main

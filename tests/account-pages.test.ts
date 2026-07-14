@@ -166,6 +166,15 @@ test('keeps the privacy entry reachable outside the household conditional', () =
   );
 });
 
+test('states the complete personal-information rights and contact channel', () => {
+  const privacyCenterWxml = readProjectFile(
+    'miniprogram/pages/privacy-center/index.wxml',
+  );
+  expect(privacyCenterWxml).toContain(
+    '你可以通过 15203700590@163.com 申请查阅、更正、删除个人信息，或进行投诉、咨询。',
+  );
+});
+
 test.each([
   [
     '../miniprogram/pages/privacy-center/index',
@@ -375,6 +384,28 @@ test('keeps the user in place and shows a stable non-auth API error', async () =
   );
   expect(instance.data.submitting).toBe(false);
   expect(instance.data.confirming).toBe(false);
+});
+
+test('keeps the user in place when WeChat revalidation fails', async () => {
+  const definition = await loadPage<DeletionPageDefinition>(
+    '../miniprogram/pages/account-deletion/index',
+  );
+  const instance = createDeletionInstance(definition);
+  runtime.getApp = () => ({
+    deleteAccount: jest
+      .fn<Promise<void>, []>()
+      .mockRejectedValue(new ApiError('WECHAT_LOGIN_FAILED', 'used code')),
+  });
+  runtime.wx = {
+    showModal: jest.fn(),
+    navigateTo: jest.fn(),
+    reLaunch: jest.fn(),
+  };
+
+  await definition.performDeletion.call(instance);
+
+  expect(runtime.wx.reLaunch).not.toHaveBeenCalled();
+  expect(instance.data.errorMessage).toBe('微信身份验证失败，请重新尝试');
 });
 
 test('redirects an unauthorized deletion failure to onboarding', async () => {

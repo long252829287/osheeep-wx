@@ -79,6 +79,37 @@ test('clears session before exposing an unauthorized error', async () => {
   expect(events).toEqual(['cleared']);
 });
 
+test('preserves session when a 401 reports a WeChat revalidation failure', async () => {
+  const onUnauthorized = jest.fn();
+  const request: RequestPort = {
+    request: (options) =>
+      options.success?.({
+        statusCode: 401,
+        data: {
+          success: false,
+          errorCode: 'WECHAT_LOGIN_FAILED',
+          message: '微信身份验证失败',
+          requestId: 'r-wechat',
+        },
+      }),
+  };
+  const client = createRequestClient({
+    request,
+    apiBaseUrl: 'https://api.test',
+    getAccessToken: () => 'still-valid',
+    onUnauthorized,
+  });
+
+  await expect(client.request('/api/users/me/deletion')).rejects.toEqual(
+    expect.objectContaining({
+      errorCode: 'WECHAT_LOGIN_FAILED',
+      message: '微信身份验证失败',
+      requestId: 'r-wechat',
+    }),
+  );
+  expect(onUnauthorized).not.toHaveBeenCalled();
+});
+
 test('maps transport failures to NETWORK_ERROR', async () => {
   const request: RequestPort = {
     request: (options) => options.fail?.({ errMsg: 'request:fail timeout' }),

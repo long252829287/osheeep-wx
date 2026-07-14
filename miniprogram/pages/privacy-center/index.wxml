@@ -9,6 +9,7 @@
     <text class="section-title">运营与联系</text>
     <text class="section-copy">运营主体：{{operatorName}}</text>
     <text class="section-copy">隐私联系邮箱：{{privacyEmail}}</text>
+    <text class="section-copy">你可以通过 15203700590@163.com 申请查阅、更正、删除个人信息，或进行投诉、咨询。</text>
   </view>
   <button class="link-button" bindtap="onOpenUserAgreement">用户协议</button>
   <button class="link-button" bindtap="onOpenPrivacyPolicy">隐私政策</button>

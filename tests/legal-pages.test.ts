@@ -23,6 +23,14 @@ const onboardingWxss = readFileSync(
   resolve(root, 'miniprogram/pages/onboarding/index.wxss'),
   'utf8',
 );
+const userAgreementWxml = readFileSync(
+  resolve(root, 'miniprogram/pages/legal/user-agreement/index.wxml'),
+  'utf8',
+);
+const privacyPolicyWxml = readFileSync(
+  resolve(root, 'miniprogram/pages/legal/privacy-policy/index.wxml'),
+  'utf8',
+);
 
 interface LegalPageDefinition {
   data: { document: unknown };
@@ -96,6 +104,20 @@ test('loads the matching document in each native legal page', async () => {
       .data.document,
   ).toEqual(EXPECTED_PRIVACY_POLICY);
 });
+
+test.each([
+  ['user agreement', userAgreementWxml],
+  ['privacy policy', privacyPolicyWxml],
+])(
+  'renders the %s from local document bindings without web-view',
+  (_, wxml) => {
+    expect(wxml).not.toContain('<web-view');
+    expect(wxml).toContain('{{document.title}}');
+    expect(wxml).toContain('wx:for="{{document.sections}}"');
+    expect(wxml).toContain('wx:for="{{item.paragraphs}}"');
+    expect(wxml).toContain('{{paragraph}}');
+  },
+);
 
 test('keeps explicit consent bindings and legal links outside the checkbox', () => {
   expect(onboardingWxml).toContain(

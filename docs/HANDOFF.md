@@ -27,8 +27,8 @@
 - 本地代码已经实现：登录前两份原生法律页、默认未勾选的显式同意、隐私中心、自助注销、当前微信身份复核、旧 JWT 立即失效、剩余成员共享历史保留与最后成员注销后家庭数据清理。
 - 注销确认采用用户批准的“勾选后依次显示两个原生确认框”；只有两个确认均通过才会请求注销。
 - Task 3 已有专用测试库双重命令保护、Spring pre-connect 安全门，以及真实 cleanup 写入后发生异常时完整回滚的集成证据。
-- 最新完整验证为：前端 19 个测试套件、87 项测试通过，TypeScript、ESLint、项目标准 `npm run format:check` 通过；后端 99 项测试通过、0 failure、0 error。Task 8 两份文档的 scoped Prettier 检查通过，但简报的广域 WXML/WXSS 命令因 Prettier 3.9.4 未配置 WXML parser 而退出 2，不能表述为 Prettier 全量通过。
-- 两个仓库均在 `main` 且工作区干净，但本地提交尚未 push；本次文档修复提交后，前端预计领先 `origin/main` 10 个提交，后端领先 6 个提交，提交后必须用只读命令复核。
+- 最新完整验证为：前端 19 个测试套件、92 项测试通过，TypeScript、ESLint、项目标准 `npm run format:check` 通过；后端 100 项测试通过、0 failure、0 error。Task 8 两份文档的 scoped Prettier 检查通过，但简报的广域 WXML/WXSS 命令因 Prettier 3.9.4 未配置 WXML parser 而退出 2，不能表述为 Prettier 全量通过。
+- 两个仓库均在 `main` 且工作区干净，但本地提交尚未 push；前端 `main` 为本文件所在提交并领先 `origin/main` 11 个提交，后端为 `80b7a21` 并领先 7 个提交。
 
 ### 0.3 当前卡在哪里
 
@@ -126,10 +126,10 @@ curl --fail --silent http://127.0.0.1:8080/actuator/health
 
 ## 2. 代码仓库
 
-| 项目       | 仓库                                                              | 本地目录                                                             | 分支   | 当前本地状态                        |
-| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------ | ----------------------------------- |
-| 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | 工作区 clean，修复提交后领先远端 10 |
-| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `673699d`，工作区 clean，领先远端 6 |
+| 项目       | 仓库                                                              | 本地目录                                                             | 分支   | 当前本地状态                               |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | ------ | ------------------------------------------ |
+| 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | 本文件所在 HEAD，工作区 clean，领先远端 11 |
+| 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `80b7a21`，工作区 clean，领先远端 7        |
 
 以上状态基于 2026-07-14 的只读命令复核。两个仓库的本地 `main` 都尚未 push，不能写成与 `origin/main` 同步；继续工作前仍应重新执行 `git status --short` 和 `git rev-list --left-right --count origin/main...main`。
 
@@ -274,7 +274,7 @@ npm run lint
 npm run format:check
 ```
 
-2026-07-14 最新完整结果：19 个测试套件、87 项测试全部通过，TypeScript 和 ESLint 退出 0。格式验证必须精确描述：
+2026-07-14 最新完整结果：19 个测试套件、92 项测试全部通过，TypeScript 和 ESLint 退出 0。格式验证必须精确描述：
 
 - 项目标准 `npm run format:check` 退出 0。
 - `npx prettier --check docs/review-submission-checklist.md docs/HANDOFF.md` 退出 0。
@@ -289,7 +289,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn test
 ```
 
-2026-07-14 最新完整结果：99 项测试全部通过，0 failure、0 error、0 skipped。
+2026-07-14 最新完整结果：100 项测试全部通过，0 failure、0 error、0 skipped。
 
 ## 8. 主要 API
 
@@ -510,9 +510,11 @@ systemctl restart osheeep-server
 ## 16. 隐私与注销开发状态（2026-07-13）
 
 - 隐私与注销本地代码已完成：登录同意默认未勾选、两份登录前原生法律页、隐私中心、自助注销、微信身份复核、旧 JWT 失效、剩余成员历史保留与最后成员家庭数据清理均已实现。
+- 请求层只有收到语义错误码 `UNAUTHORIZED` 才全局清除 session；注销复核返回 `WECHAT_LOGIN_FAILED` 时保留登录态并允许重新获取 fresh code 重试。
+- 注销 cleanup 与刷新邀请码统一使用 membership→household 锁序；加入家庭会在 household 锁后以 locking current read 复核同一邀请码，已撤销的邀请码不能被并发消费。
 - 注销确认采用用户批准的勾选加两个顺序原生确认框；只有两个确认均通过才会请求注销。
 - Task 3 的真实测试库 IT 具有命令双重保护和 Spring pre-connect 安全门，并已证明真实 cleanup 写入后发生异常时，身份、用户与家庭业务数据全部回滚。
-- 验证结果为：后端 99 项测试、前端 19 个套件/87 项测试、TypeScript、ESLint 和项目标准 `npm run format:check` 通过；Task 8 两份文档 scoped Prettier 检查通过。简报广域 WXML/WXSS Prettier 命令因 Prettier 3.9.4 无 WXML parser 退出 2，不能声称 Prettier 全量通过。
+- 验证结果为：后端 100 项测试、前端 19 个套件/92 项测试、TypeScript、ESLint 和项目标准 `npm run format:check` 通过；Task 8 两份文档 scoped Prettier 检查通过。简报广域 WXML/WXSS Prettier 命令因 Prettier 3.9.4 无 WXML parser 退出 2，不能声称 Prettier 全量通过。
 - 代码已完成但生产后端和体验版尚未更新；当前线上体验版仍以本文件前文记录的状态为准。
 - **运营主体目前仍显示字面 `个人主体姓名`。管理员必须用微信公众平台实名认证的个人主体真实姓名替换并逐字核验；隐私联系邮箱为 `15203700590@163.com`。**
 - 隐私保护指引、最小化隐私接口声明、服务类目、体验成员、设备/弱网回归、生产运维、最终提审和发布全部是管理员人工动作。

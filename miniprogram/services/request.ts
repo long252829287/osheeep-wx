@@ -50,7 +50,7 @@ export const createRequestClient = (options: {
         },
         success: (result) => {
           const body = result.data as ApiResponse<T>;
-          if (result.statusCode === 401) {
+          if (body.errorCode === 'UNAUTHORIZED') {
             options.onUnauthorized?.();
           }
           if (

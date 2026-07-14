@@ -62,13 +62,13 @@ const loadLegalPage = async (
 };
 
 test('protects the complete exact user agreement copy', () => {
-  expect(OPERATOR_NAME).toBe('个人主体姓名');
+  expect(OPERATOR_NAME).toBe('刘彦龙');
   expect(PRIVACY_EMAIL).toBe('15203700590@163.com');
   expect(USER_AGREEMENT).toEqual(EXPECTED_USER_AGREEMENT);
 });
 
 test('protects the complete exact privacy policy copy', () => {
-  expect(OPERATOR_NAME).toBe('个人主体姓名');
+  expect(OPERATOR_NAME).toBe('刘彦龙');
   expect(PRIVACY_EMAIL).toBe('15203700590@163.com');
   expect(PRIVACY_POLICY).toEqual(EXPECTED_PRIVACY_POLICY);
 });

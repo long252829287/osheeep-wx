@@ -10,7 +10,7 @@ export interface LegalDocument {
   sections: LegalSection[];
 }
 
-export const OPERATOR_NAME = '个人主体姓名';
+export const OPERATOR_NAME = '刘彦龙';
 export const PRIVACY_EMAIL = '15203700590@163.com';
 
 export const USER_AGREEMENT: LegalDocument = {
@@ -21,7 +21,7 @@ export const USER_AGREEMENT: LegalDocument = {
     {
       heading: '一、协议范围',
       paragraphs: [
-        '本协议由你与“今晚吃什么”的运营者个人主体姓名共同订立。使用本小程序前，请完整阅读并理解本协议。',
+        `本协议由你与“今晚吃什么”的运营者${OPERATOR_NAME}共同订立。使用本小程序前，请完整阅读并理解本协议。`,
         '当你主动勾选同意并使用微信登录，即表示你同意遵守本协议和《隐私政策》。',
       ],
     },

@@ -489,3 +489,10 @@ systemctl restart osheeep-server
 ### 15.10 不要泄露或提交密钥
 
 生产环境变量位于服务器 `/opt/osheeep-server/osheeep-server.env`，文件权限已限制。仓库中只能保留变量名和示例，不得写入真实数据库密码、JWT Secret、微信 AppSecret 或 SSH 凭据。新的对话即使能从历史聊天中看到凭据，也不能把它们复制到 `HANDOFF.md`、Git 提交或最终回复中。
+
+## 16. 隐私与注销开发状态（2026-07-13）
+
+- 隐私与注销本地代码已完成，并通过后端完整测试、小程序完整测试、TypeScript、ESLint 和 Prettier 检查。
+- 代码已完成但生产后端和体验版尚未更新；当前线上体验版仍以本文件前文记录的状态为准。
+- 运营主体目前显示“个人主体姓名”，正式提审前必须替换并核对为微信公众平台实名认证姓名。
+- 正式提审以 `docs/review-submission-checklist.md` 全部勾选为前提。

@@ -8,6 +8,7 @@ interface OsheeepApp {
 Page({
   data: {
     understood: false,
+    confirming: false,
     submitting: false,
     errorMessage: '',
   },
@@ -20,24 +21,55 @@ Page({
   },
 
   onRequestDeletion() {
-    if (!this.data.understood || this.data.submitting) return;
+    if (!this.data.understood || this.data.confirming || this.data.submitting)
+      return;
+    this.setData({ confirming: true, errorMessage: '' });
     wx.showModal({
-      title: '确认注销账号？',
-      content: '注销后原账号和历史关联无法恢复。',
-      confirmText: '确认注销',
+      title: '确认退出当前小家？',
+      content:
+        '仍有其他家庭成员时，你将退出家庭，共享历史会以“已注销成员”保留；如果你是最后一名成员，家庭及全部晚餐数据将被删除。',
+      confirmText: '继续',
       confirmColor: '#B83B2F',
       success: (result) => {
-        if (result.confirm) void this.performDeletion();
+        if (result.confirm) {
+          this.showFinalDeletionConfirmation();
+          return;
+        }
+        this.setData({ confirming: false });
       },
+      fail: () => this.setData({ confirming: false }),
+    });
+  },
+
+  showFinalDeletionConfirmation() {
+    wx.showModal({
+      title: '最终确认注销账号',
+      content:
+        '旧账号注销后不可恢复；再次使用需要重新进行微信授权并创建新账号。',
+      confirmText: '永久注销',
+      confirmColor: '#B83B2F',
+      success: (result) => {
+        if (result.confirm) {
+          void this.performDeletion();
+          return;
+        }
+        this.setData({ confirming: false });
+      },
+      fail: () => this.setData({ confirming: false }),
     });
   },
 
   async performDeletion() {
-    this.setData({ submitting: true, errorMessage: '' });
+    if (this.data.submitting) return;
+    this.setData({ confirming: false, submitting: true, errorMessage: '' });
     try {
       await getApp<OsheeepApp>().deleteAccount();
       wx.reLaunch({ url: '/pages/onboarding/index' });
     } catch (error) {
+      if (error instanceof ApiError && error.errorCode === 'UNAUTHORIZED') {
+        wx.reLaunch({ url: '/pages/onboarding/index' });
+        return;
+      }
       this.setData({
         errorMessage:
           error instanceof ApiError
@@ -45,7 +77,7 @@ Page({
             : '注销失败，请稍后重试',
       });
     } finally {
-      this.setData({ submitting: false });
+      this.setData({ confirming: false, submitting: false });
     }
   },
 });

@@ -2,11 +2,11 @@
   <text class="page-title">注销账号</text>
   <text class="warning">此操作无法撤销</text>
   <view class="impact-card">
-    <text>• 当前微信身份绑定会被删除</text>
-    <text>• 你会退出当前小家，未使用的邀请码会失效</text>
-    <text>• 共同历史会以“已注销成员”保留</text>
-    <text>• 最后一名成员注销时，小家及其记录会被删除</text>
-    <text>• 同一微信再次登录会创建全新账号</text>
+    <text>• 当前微信身份绑定和个人资料会被删除，未使用的邀请码会失效</text>
+    <text>• 仍有其他家庭成员时，你会退出家庭，共享历史以“已注销成员”保留</text>
+    <text>• 你是最后一名成员时，家庭及全部晚餐数据会被删除</text>
+    <text>• 旧账号不可恢复</text>
+    <text>• 再次使用需重新进行微信授权并创建新账号</text>
   </view>
   <checkbox-group bindchange="onUnderstandingChange">
     <label class="understanding-row">
@@ -15,5 +15,5 @@
     </label>
   </checkbox-group>
   <text wx:if="{{errorMessage}}" class="error" role="alert">{{errorMessage}}</text>
-  <button class="delete-button" loading="{{submitting}}" disabled="{{!understood || submitting}}" bindtap="onRequestDeletion">注销账号</button>
+  <button class="delete-button" loading="{{submitting}}" disabled="{{!understood || confirming || submitting}}" bindtap="onRequestDeletion">注销账号</button>
 </view>

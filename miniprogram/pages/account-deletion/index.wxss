@@ -37,9 +37,11 @@
 }
 .understanding-row {
   display: flex;
+  min-height: 88rpx;
   align-items: center;
   gap: 12rpx;
   margin-top: 34rpx;
+  padding: 12rpx 0;
   color: #57534d;
   font-size: 26rpx;
 }

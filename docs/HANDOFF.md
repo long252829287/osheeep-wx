@@ -28,7 +28,7 @@
 - 注销确认采用用户批准的“勾选后依次显示两个原生确认框”；只有两个确认均通过才会请求注销。
 - Task 3 已有专用测试库双重命令保护、Spring pre-connect 安全门，以及真实 cleanup 写入后发生异常时完整回滚的集成证据。
 - 最新完整验证为：前端 19 个测试套件、92 项测试通过，TypeScript、ESLint、项目标准 `npm run format:check` 通过；后端 100 项测试通过、0 failure、0 error。Task 8 两份文档的 scoped Prettier 检查通过，但简报的广域 WXML/WXSS 命令因 Prettier 3.9.4 未配置 WXML parser 而退出 2，不能表述为 Prettier 全量通过。
-- 两个仓库均在 `main` 且工作区干净，但本地提交尚未 push；前端 `main` 为本文件所在提交并领先 `origin/main` 12 个提交，后端为 `80b7a21` 并领先 7 个提交。
+- 两个仓库均在 `main` 且工作区干净，当前提交已 push 并与各自 `origin/main` 同步；前端 `main` 为本文件所在提交，后端为 `80b7a21`。
 
 ### 0.3 当前卡在哪里
 
@@ -131,7 +131,7 @@ curl --fail --silent http://127.0.0.1:8080/actuator/health
 | 微信小程序 | [osheeep-wx](https://github.com/long252829287/osheeep-wx)         | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `main` | 本文件所在 HEAD，工作区 clean，领先远端 11 |
 | 后端服务   | [osheeep-server](https://github.com/long252829287/osheeep-server) | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `main` | `80b7a21`，工作区 clean，领先远端 7        |
 
-以上状态基于 2026-07-14 的只读命令复核。两个仓库的本地 `main` 都尚未 push，不能写成与 `origin/main` 同步；继续工作前仍应重新执行 `git status --short` 和 `git rev-list --left-right --count origin/main...main`。
+以上状态基于 2026-07-14 的 push 结果和只读命令复核。两个仓库的本地 `main` 已与各自 `origin/main` 同步；继续工作前仍应重新执行 `git status --short` 和 `git rev-list --left-right --count origin/main...main`。
 
 ## 3. 技术栈
 

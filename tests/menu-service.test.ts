@@ -35,10 +35,25 @@ test('maps recipe and record read endpoints', async () => {
   const recordService = createRecordService({ request });
 
   await recipeService.list();
+  await recipeService.list({
+    includeIngredientIds: [3, 8],
+    excludeIngredientIds: [13, 21],
+    onlyCookable: true,
+  });
+  await recipeService.list({
+    includeIngredientIds: [],
+    excludeIngredientIds: [],
+    onlyCookable: false,
+  });
   await recordService.list();
   await recordService.detail(91);
 
   expect(request).toHaveBeenNthCalledWith(1, '/api/dinner/recipes');
-  expect(request).toHaveBeenNthCalledWith(2, '/api/dinner/records');
-  expect(request).toHaveBeenNthCalledWith(3, '/api/dinner/records/91');
+  expect(request).toHaveBeenNthCalledWith(
+    2,
+    '/api/dinner/recipes?includeIngredientIds=3,8&excludeIngredientIds=13,21&onlyCookable=true',
+  );
+  expect(request).toHaveBeenNthCalledWith(3, '/api/dinner/recipes');
+  expect(request).toHaveBeenNthCalledWith(4, '/api/dinner/records');
+  expect(request).toHaveBeenNthCalledWith(5, '/api/dinner/records/91');
 });

@@ -3,7 +3,10 @@ import type { RecipeSummary } from './recipe';
 export type MenuStatus = 'DRAFT' | 'CONFIRMED' | 'COMPLETED';
 export type MenuDishSource = 'ME' | 'PARTNER' | 'BOTH';
 
-export interface MenuDish extends Omit<RecipeSummary, 'id'> {
+export interface MenuDish extends Omit<
+  RecipeSummary,
+  'id' | 'ingredients' | 'match'
+> {
   recipeId: number;
   source: MenuDishSource;
 }

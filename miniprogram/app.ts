@@ -2,6 +2,7 @@ import { createRuntimeConfig } from './config/environment';
 import { createAuthService, type LoginPort } from './services/auth-service';
 import { createAccountService } from './services/account-service';
 import { createHouseholdService } from './services/household-service';
+import { createIngredientService } from './services/ingredient-service';
 import { createMenuService } from './services/menu-service';
 import { createRecipeService } from './services/recipe-service';
 import { createRecordService } from './services/record-service';
@@ -63,6 +64,9 @@ const accountService = createAccountService({
 const householdService = createHouseholdService({
   request: requestClient.request,
 });
+const ingredientService = createIngredientService({
+  request: requestClient.request,
+});
 const menuService = createMenuService({ request: requestClient.request });
 const recipeService = createRecipeService({ request: requestClient.request });
 const recordService = createRecordService({ request: requestClient.request });
@@ -76,6 +80,10 @@ App({
   createHousehold: householdService.create,
   refreshInviteCode: householdService.refreshInviteCode,
   joinHousehold: householdService.join,
+  getIngredients: ingredientService.listIngredients,
+  getInventory: ingredientService.listInventory,
+  saveInventoryItem: ingredientService.saveInventoryItem,
+  removeInventoryItem: ingredientService.removeInventoryItem,
   getRecipes: recipeService.list,
   getTodayMenu: menuService.getToday,
   saveSelections: menuService.saveSelections,

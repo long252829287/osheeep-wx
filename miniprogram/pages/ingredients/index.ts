@@ -294,7 +294,10 @@ Page({
           if (!currentItem) return refreshedItem;
 
           const canonicalItem =
-            refreshedItem.version > currentItem.version
+            refreshedItem.version > currentItem.version ||
+            (refreshedItem.version === currentItem.version &&
+              refreshedItem.stocked &&
+              !currentItem.stocked)
               ? refreshedItem
               : currentItem;
           const isTarget = refreshedItem.ingredientId === ingredientId;

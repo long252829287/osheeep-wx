@@ -43,6 +43,17 @@ test('declares every dinner menu route and bundled recipe image', () => {
   }
 });
 
+test('declares the household ingredient inventory page', () => {
+  const app = JSON.parse(
+    readFileSync(resolve(root, 'miniprogram/app.json'), 'utf8'),
+  ) as { pages?: string[] };
+
+  expect(app.pages).toContain('pages/ingredients/index');
+  expect(
+    existsSync(resolve(root, 'miniprogram/pages/ingredients/index.ts')),
+  ).toBe(true);
+});
+
 test('declares a valid default sitemap rule for upload', () => {
   const sitemap = JSON.parse(
     readFileSync(resolve(root, 'miniprogram/sitemap.json'), 'utf8'),

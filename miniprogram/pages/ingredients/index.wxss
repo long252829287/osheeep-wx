@@ -1,0 +1,263 @@
+.page-shell {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 44rpx 38rpx calc(56rpx + env(safe-area-inset-bottom));
+}
+
+.page-heading {
+  padding: 0 4rpx 38rpx;
+}
+
+.eyebrow,
+.page-title,
+.page-copy,
+.request-title,
+.request-copy,
+.guidance-title,
+.guidance-copy,
+.empty-title,
+.empty-copy,
+.category-heading,
+.ingredient-name,
+.row-error {
+  display: block;
+}
+
+.eyebrow {
+  color: #7b823b;
+  font-size: 24rpx;
+  font-weight: 650;
+  letter-spacing: 3rpx;
+}
+
+.page-title {
+  margin-top: 14rpx;
+  color: #282722;
+  font-size: 48rpx;
+  font-weight: 750;
+  letter-spacing: 1rpx;
+}
+
+.page-copy {
+  margin-top: 14rpx;
+  color: #77736b;
+  font-size: 25rpx;
+  line-height: 1.55;
+}
+
+.status-state {
+  padding: 180rpx 0;
+  color: #77736b;
+  font-size: 27rpx;
+  text-align: center;
+}
+
+.status-state--compact {
+  padding: 110rpx 0;
+}
+
+.request-state {
+  margin-top: 54rpx;
+  padding: 44rpx 34rpx;
+  border: 1rpx solid #e7c8b8;
+  border-radius: 22rpx;
+  background: #fff5ef;
+  text-align: center;
+}
+
+.request-title,
+.empty-title {
+  color: #3f3c36;
+  font-size: 29rpx;
+  font-weight: 700;
+}
+
+.request-copy,
+.empty-copy {
+  margin-top: 12rpx;
+  color: #77736b;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.retry-button {
+  display: flex;
+  width: 220rpx;
+  min-height: 76rpx;
+  align-items: center;
+  justify-content: center;
+  margin: 28rpx auto 0;
+  border: 2rpx solid #c95328;
+  border-radius: 38rpx;
+  background: transparent;
+  color: #b94721;
+  font-size: 25rpx;
+  font-weight: 650;
+  line-height: 76rpx;
+}
+
+.search-field {
+  display: flex;
+  height: 88rpx;
+  align-items: center;
+  gap: 22rpx;
+  padding: 0 26rpx;
+  border: 1rpx solid #dfd6c8;
+  border-radius: 18rpx;
+  background: rgba(255, 253, 249, 0.72);
+}
+
+.search-label {
+  color: #7b823b;
+  font-size: 24rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.search-input {
+  min-width: 0;
+  flex: 1;
+  color: #34322d;
+  font-size: 28rpx;
+}
+
+.input-placeholder {
+  color: #aaa397;
+}
+
+.inventory-guidance {
+  margin: 28rpx 0 36rpx;
+  padding: 24rpx 26rpx;
+  border-left: 5rpx solid #8b914a;
+  background: #faf8ed;
+}
+
+.guidance-title {
+  color: #666b34;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.guidance-copy {
+  margin-top: 8rpx;
+  color: #77736b;
+  font-size: 23rpx;
+  line-height: 1.55;
+}
+
+.ingredient-groups {
+  margin-top: 40rpx;
+}
+
+.ingredient-group + .ingredient-group {
+  margin-top: 46rpx;
+}
+
+.category-heading {
+  padding: 0 4rpx 16rpx;
+  color: #7b823b;
+  font-size: 23rpx;
+  font-weight: 700;
+  letter-spacing: 3rpx;
+}
+
+.ingredient-list {
+  border-top: 1rpx solid #ddd4c6;
+}
+
+.ingredient-row {
+  padding: 27rpx 4rpx 25rpx;
+  border-bottom: 1rpx solid #e7dfd3;
+}
+
+.ingredient-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22rpx;
+}
+
+.ingredient-name {
+  min-width: 150rpx;
+  flex: 1;
+  color: #302e29;
+  font-size: 29rpx;
+  font-weight: 650;
+}
+
+.quantity-editor {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.quantity-input {
+  box-sizing: border-box;
+  width: 164rpx;
+  height: 70rpx;
+  padding: 0 16rpx;
+  border: 1rpx solid #d8cfc0;
+  border-radius: 12rpx;
+  background: #fffdf9;
+  color: #302e29;
+  font-size: 27rpx;
+  text-align: right;
+}
+
+.quantity-input--error {
+  border-color: #c95328;
+  background: #fff8f4;
+}
+
+.unit-label {
+  width: 68rpx;
+  overflow: hidden;
+  color: #77736b;
+  font-size: 23rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-button {
+  display: flex;
+  min-width: 92rpx;
+  min-height: 68rpx;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 18rpx;
+  border-radius: 34rpx;
+  background: #c95328;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 68rpx;
+}
+
+.save-button[disabled] {
+  background: #d8a58e;
+  color: #fffaf6;
+}
+
+.row-error {
+  margin-top: 12rpx;
+  color: #b94721;
+  font-size: 22rpx;
+  line-height: 1.45;
+  text-align: right;
+}
+
+@media (max-width: 350px) {
+  .ingredient-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quantity-editor {
+    width: 100%;
+  }
+
+  .quantity-input {
+    flex: 1;
+  }
+}

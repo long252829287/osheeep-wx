@@ -1,31 +1,132 @@
-<view class="page-shell">
+<view class="discovery-page">
   <view class="page-heading">
-    <text class="eyebrow">今晚想吃什么</text>
-    <text class="page-title">选几道喜欢的菜</text>
-    <text class="page-copy">你们各自选择，我们自动合成今晚菜单</text>
+    <text class="page-title">找菜</text>
+    <text class="page-prompt">今晚想吃什么？</text>
   </view>
 
-  <view wx:if="{{conflictMessage}}" class="conflict-banner">
-    <image class="banner-icon" src="/assets/icons/info-green.svg" />
-    <text>{{conflictMessage}}</text>
-  </view>
-  <view wx:if="{{errorMessage}}" class="error-banner">{{errorMessage}}</view>
-  <view wx:if="{{completed}}" class="completed-banner">今晚的菜单已经完成，明天再来选菜</view>
+  <view wx:if="{{loading}}" class="status-state">正在看看家里能做什么…</view>
 
-  <view wx:if="{{loading}}" class="status-state">正在准备菜谱…</view>
-  <view wx:else class="recipe-grid">
-    <view wx:for="{{recipes}}" wx:key="id" class="recipe-card {{item.selected ? 'recipe-card--selected' : ''}}" data-id="{{item.id}}" bindtap="onToggleRecipe">
-      <image class="recipe-image" src="{{item.imagePath}}" mode="aspectFill" />
-      <view wx:if="{{item.selected}}" class="selected-mark"><image class="check-icon" src="/assets/icons/check-white.svg" /></view>
-      <view class="recipe-body">
-        <text class="recipe-name">{{item.name}}</text>
-        <text class="recipe-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
+  <view wx:elif="{{loadErrorMessage && !featured}}" class="request-state" role="alert">
+    <text class="request-title">暂时没能准备好菜谱</text>
+    <text class="request-copy">{{loadErrorMessage}}</text>
+    <button class="retry-button" bindtap="onRetry">重新加载</button>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{loadErrorMessage}}" class="partial-load-message" role="alert">
+      <text>{{loadErrorMessage}}</text>
+      <button class="inline-retry" bindtap="onRetry">重新加载</button>
+    </view>
+
+    <view class="pantry-surface">
+      <view class="pantry-topline">
+        <text class="pantry-summary">{{pantrySummary}}</text>
+        <button class="text-action" bindtap="onToggleFiltersPanel" aria-expanded="{{filtersOpen}}">调整食材</button>
+      </view>
+      <view wx:if="{{visibleIngredients.length}}" class="pantry-items" aria-label="家中食材摘要">
+        <text wx:for="{{visibleIngredients}}" wx:key="ingredientId" class="pantry-item">{{item.name}}</text>
+      </view>
+      <text wx:else class="pantry-empty">库存还没有记录食材</text>
+    </view>
+
+    <view wx:if="{{filtersOpen}}" class="filter-panel">
+      <view class="filter-heading">
+        <view>
+          <text class="filter-title">临时调整</text>
+          <text class="filter-copy">点按食材依次切换：不限、想吃、排除</text>
+        </view>
+        <button class="reset-button" bindtap="onResetFilters">重置</button>
+      </view>
+      <view wx:if="{{selectableIngredients.length}}" class="filter-options">
+        <button
+          wx:for="{{selectableIngredients}}"
+          wx:key="ingredientId"
+          class="filter-option filter-option--{{item.state}}"
+          data-id="{{item.ingredientId}}"
+          bindtap="onCycleIngredientFilter"
+          aria-label="{{item.name}}，当前{{item.stateLabel}}"
+        >{{item.name}} · {{item.stateLabel}}</button>
+      </view>
+      <text wx:else class="filter-empty">加载到食材后可在这里临时筛选</text>
+    </view>
+
+    <view class="cookable-control">
+      <text class="cookable-label">只看能做</text>
+      <switch checked="{{onlyCookable}}" color="#7B823B" bindchange="onToggleOnlyCookable" aria-label="只看现在能做的菜" />
+      <text wx:if="{{refreshing}}" class="refreshing-label">正在更新…</text>
+    </view>
+
+    <view wx:if="{{refreshMessage}}" class="inline-message" role="alert">
+      <text>{{refreshMessage}}</text>
+      <button class="inline-retry" bindtap="reloadRecipes">重试</button>
+    </view>
+    <view wx:if="{{conflictMessage}}" class="conflict-message" role="alert">{{conflictMessage}}</view>
+    <view wx:if="{{actionMessage}}" class="action-message" role="status">{{actionMessage}}</view>
+
+    <view wx:if="{{featured}}" class="featured-card">
+      <image wx:if="{{featured.imagePath}}" class="featured-image" src="{{featured.imagePath}}" mode="aspectFill" aria-role="img" aria-label="{{featured.name}}菜品图片" />
+      <view class="featured-body">
+        <view class="featured-copy">
+          <text class="recipe-name recipe-name--featured">{{featured.name}}</text>
+          <view class="recipe-meta-line">
+            <text>{{featured.estimatedMinutes}} 分钟</text>
+            <text class="meta-divider">｜</text>
+            <text class="match-label match-label--{{featured.match.status}}">{{featured.matchLabel}}</text>
+          </view>
+        </view>
+        <button
+          class="add-button {{featured.added ? 'add-button--added' : ''}}"
+          data-id="{{featured.id}}"
+          loading="{{savingRecipeId === featured.id}}"
+          disabled="{{featured.added || savingRecipeId}}"
+          bindtap="onAddToTonight"
+          aria-label="{{featured.added ? featured.name + '已加入今晚菜单' : '将' + featured.name + '加入今晚菜单'}}"
+        >{{featured.added ? '已加入今晚菜单' : (pendingRecipeId === featured.id ? '重试加入' : '加入今晚菜单')}}</button>
       </view>
     </view>
-  </view>
+
+    <view wx:if="{{!featured}}" class="empty-recipes">
+      <text class="empty-title">暂时没有合适的菜</text>
+      <text class="empty-copy">换一组食材条件，或者关闭“只看能做”试试</text>
+      <button class="empty-reset" bindtap="onResetFilters">清除筛选</button>
+    </view>
+
+    <view wx:if="{{rows.length}}" class="recipe-rows">
+      <button
+        wx:for="{{rows}}"
+        wx:key="id"
+        class="recipe-row"
+        data-id="{{item.id}}"
+        disabled="{{savingRecipeId}}"
+        bindtap="onAddToTonight"
+        aria-label="{{item.added ? item.name + '已加入今晚菜单' : '将' + item.name + '加入今晚菜单'}}"
+      >
+        <image wx:if="{{item.imagePath}}" class="row-image" src="{{item.imagePath}}" mode="aspectFill" aria-role="img" aria-label="{{item.name}}菜品图片" />
+        <view class="row-copy">
+          <text class="recipe-name">{{item.name}}</text>
+          <view class="recipe-meta-line recipe-meta-line--row">
+            <text>{{item.estimatedMinutes}} 分钟</text>
+            <text class="meta-divider">｜</text>
+            <text class="match-label match-label--{{item.match.status}}">{{item.matchLabel}}</text>
+          </view>
+          <text wx:if="{{item.added}}" class="added-label">已加入今晚菜单</text>
+          <text wx:elif="{{pendingRecipeId === item.id}}" class="retry-label">点按重试加入</text>
+        </view>
+        <image class="row-chevron" src="/assets/icons/chevron-gray.svg" mode="aspectFit" aria-hidden="true" />
+      </button>
+    </view>
+
+    <view class="utility-links">
+      <button class="utility-link" bindtap="onOpenHouseholdRecipes">
+        <text>家庭菜谱</text>
+        <image class="utility-chevron" src="/assets/icons/chevron-gray.svg" mode="aspectFit" aria-hidden="true" />
+      </button>
+      <button class="utility-link" bindtap="onOpenIngredients">
+        <text>食材库存</text>
+        <image class="utility-chevron" src="/assets/icons/chevron-gray.svg" mode="aspectFit" aria-hidden="true" />
+      </button>
+    </view>
+  </block>
 </view>
 
-<view wx:if="{{!loading}}" class="save-area">
-  <button class="save-button" loading="{{saving}}" disabled="{{saving}}" bindtap="onSaveSelections">{{completed ? '返回今晚菜单' : '保存我的选择 · ' + selectedCount + ' 道'}}</button>
-</view>
 <bottom-nav active="recipes" />

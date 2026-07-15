@@ -1,0 +1,524 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ApiError } from '../miniprogram/services/request';
+import type { InventoryItem } from '../miniprogram/types/ingredient';
+import type { TodayMenu } from '../miniprogram/types/menu';
+import type {
+  RecipeDiscoveryQuery,
+  RecipeMatch,
+  RecipeSummary,
+} from '../miniprogram/types/recipe';
+import type { RecipeCardView } from '../miniprogram/utils/recipe-discovery';
+
+const root = resolve(__dirname, '..');
+const readProjectFile = (path: string) => {
+  const absolutePath = resolve(root, path);
+  return existsSync(absolutePath) ? readFileSync(absolutePath, 'utf8') : '';
+};
+
+interface PageRecipeCard extends RecipeCardView {
+  added: boolean;
+}
+
+interface FilterIngredient {
+  ingredientId: number;
+  name: string;
+  state: 'neutral' | 'include' | 'exclude';
+  stateLabel: string;
+}
+
+interface RecipePageData {
+  loading: boolean;
+  refreshing: boolean;
+  inventory: InventoryItem[];
+  featured: PageRecipeCard | null;
+  rows: PageRecipeCard[];
+  pantrySummary: string;
+  visibleIngredients: InventoryItem[];
+  hasMoreIngredients: boolean;
+  filtersOpen: boolean;
+  selectableIngredients: FilterIngredient[];
+  onlyCookable: boolean;
+  includeIngredientIds: number[];
+  excludeIngredientIds: number[];
+  menuVersion: number;
+  mySelectedRecipeIds: number[];
+  savingRecipeId: number;
+  pendingRecipeId: number;
+  loadErrorMessage: string;
+  refreshMessage: string;
+  actionMessage: string;
+  conflictMessage: string;
+}
+
+interface RecipePageInstance {
+  data: RecipePageData;
+  setData(update: Partial<RecipePageData>): void;
+  onShow(): Promise<void>;
+  onRetry(): Promise<void>;
+  onToggleOnlyCookable(): Promise<void>;
+  onToggleFiltersPanel(): void;
+  onCycleIngredientFilter(event: RecipeEvent): Promise<void>;
+  onResetFilters(): Promise<void>;
+  onAddToTonight(event: RecipeEvent): Promise<void>;
+  onOpenHouseholdRecipes(): void;
+  onOpenIngredients(): void;
+  reloadRecipes(): Promise<void>;
+  recoverMenuConflict(recipeId: number): Promise<void>;
+  currentQuery(): RecipeDiscoveryQuery;
+}
+
+interface RecipePageDefinition extends RecipePageInstance {
+  data: RecipePageData;
+}
+
+interface RecipeEvent {
+  currentTarget: { dataset: { id?: number | string } };
+}
+
+interface AppMock {
+  getInventory: jest.Mock<Promise<InventoryItem[]>, []>;
+  getRecipes: jest.Mock<Promise<RecipeSummary[]>, [RecipeDiscoveryQuery]>;
+  getTodayMenu: jest.Mock<Promise<TodayMenu>, []>;
+  saveSelections: jest.Mock<Promise<TodayMenu>, [number[], number]>;
+}
+
+const runtime = globalThis as unknown as {
+  Page?: (definition: RecipePageDefinition) => void;
+  getApp?: () => AppMock;
+  wx?: {
+    showToast: jest.Mock;
+    navigateTo: jest.Mock;
+  };
+};
+
+const originalGetApp = runtime.getApp;
+const originalWx = runtime.wx;
+
+const loadRecipePage = async (): Promise<RecipePageDefinition> => {
+  const previousPage = runtime.Page;
+  let captured: RecipePageDefinition | undefined;
+  runtime.Page = (definition) => {
+    captured = definition;
+  };
+
+  try {
+    await jest.isolateModulesAsync(async () => {
+      await import('../miniprogram/pages/recipes/index');
+    });
+  } finally {
+    if (previousPage) runtime.Page = previousPage;
+    else delete runtime.Page;
+  }
+
+  if (!captured) throw new Error('Recipe Page definition was not captured');
+  return captured;
+};
+
+const createInstance = (
+  definition: RecipePageDefinition,
+): RecipePageInstance => {
+  const instance = {
+    ...definition,
+    data: {
+      ...definition.data,
+      inventory: [...definition.data.inventory],
+      rows: [...definition.data.rows],
+      visibleIngredients: [...definition.data.visibleIngredients],
+      selectableIngredients: [...definition.data.selectableIngredients],
+      includeIngredientIds: [...definition.data.includeIngredientIds],
+      excludeIngredientIds: [...definition.data.excludeIngredientIds],
+      mySelectedRecipeIds: [...definition.data.mySelectedRecipeIds],
+    },
+    setData(update: Partial<RecipePageData>) {
+      Object.assign(this.data, update);
+    },
+  };
+  return instance;
+};
+
+const recipeMatch = (
+  status: RecipeMatch['status'] = 'AVAILABLE',
+): RecipeMatch => ({
+  status,
+  matchedRequired: status === 'AVAILABLE' ? 2 : 1,
+  totalRequired: 2,
+  matchPercent: status === 'AVAILABLE' ? 100 : 50,
+  missingIngredients: status === 'MISSING' ? ['葱'] : [],
+  unknownQuantityIngredients: status === 'UNKNOWN_QUANTITY' ? ['鸡蛋'] : [],
+});
+
+const recipe = (id: number, ingredientIds: number[] = [id]): RecipeSummary => ({
+  id,
+  name: `菜谱 ${id}`,
+  imagePath: `/assets/recipes/${id}.jpg`,
+  category: '家常菜',
+  flavor: '咸鲜',
+  estimatedMinutes: 20,
+  ingredients: ingredientIds.map((ingredientId) => ({
+    ingredientId,
+    name: `食材 ${ingredientId}`,
+    quantity: 1,
+    unit: '份',
+    required: true,
+    sortOrder: ingredientId,
+  })),
+  match: recipeMatch(),
+});
+
+const inventoryItem = (ingredientId: number): InventoryItem => ({
+  ingredientId,
+  name: `库存 ${ingredientId}`,
+  category: '家常',
+  quantity: 1,
+  unit: '份',
+  version: 1,
+  updatedBy: 7,
+  updatedAt: '2026-07-15T08:00:00Z',
+});
+
+const menu = (
+  version: number,
+  selectedRecipeIds: number[] = [],
+): TodayMenu => ({
+  id: 1,
+  menuDate: '2026-07-15',
+  status: 'DRAFT',
+  version,
+  mySelectionCount: selectedRecipeIds.length,
+  partnerSelectionCount: 0,
+  consensusCount: 0,
+  selectedRecipeIds,
+  dishes: [],
+});
+
+const createAppMock = (): AppMock => ({
+  getInventory: jest.fn<Promise<InventoryItem[]>, []>().mockResolvedValue([]),
+  getRecipes: jest
+    .fn<Promise<RecipeSummary[]>, [RecipeDiscoveryQuery]>()
+    .mockResolvedValue([]),
+  getTodayMenu: jest.fn<Promise<TodayMenu>, []>().mockResolvedValue(menu(1)),
+  saveSelections: jest
+    .fn<Promise<TodayMenu>, [number[], number]>()
+    .mockResolvedValue(menu(2)),
+});
+
+const deferred = <T>() => {
+  let resolvePromise: ((value: T) => void) | undefined;
+  let rejectPromise: ((reason: unknown) => void) | undefined;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+  return {
+    promise,
+    resolve(value: T) {
+      resolvePromise?.(value);
+    },
+    reject(reason: unknown) {
+      rejectPromise?.(reason);
+    },
+  };
+};
+
+const eventFor = (id: number): RecipeEvent => ({
+  currentTarget: { dataset: { id } },
+});
+
+beforeEach(() => {
+  runtime.wx = {
+    showToast: jest.fn(),
+    navigateTo: jest.fn(),
+  };
+});
+
+afterEach(() => {
+  if (originalGetApp) runtime.getApp = originalGetApp;
+  else delete runtime.getApp;
+  if (originalWx) runtime.wx = originalWx;
+  else delete runtime.wx;
+});
+
+test('renders the approved discovery hierarchy and reachable states', () => {
+  const pageConfig = readProjectFile('miniprogram/pages/recipes/index.json');
+  const wxml = readProjectFile('miniprogram/pages/recipes/index.wxml');
+  const wxss = readProjectFile('miniprogram/pages/recipes/index.wxss');
+
+  expect(pageConfig).toContain('找菜');
+  expect(wxml).toContain('今晚想吃什么？');
+  expect(wxml).toContain('调整食材');
+  expect(wxml).toContain('只看能做');
+  expect(wxml).toContain('加入今晚菜单');
+  expect(wxml).toContain('家庭菜谱');
+  expect(wxml).toContain('食材库存');
+  expect(wxml).toContain('bindtap="onCycleIngredientFilter"');
+  expect(wxml).toContain('bindtap="onResetFilters"');
+  expect(wxml).toContain('bindtap="onRetry"');
+  expect(wxml).toContain('aria-label="{{featured.name}}菜品图片"');
+  expect(wxml).toContain('<bottom-nav active="recipes" />');
+  expect(wxss).toContain('env(safe-area-inset-bottom)');
+  expect(wxss).toContain('@media (min-width: 430px)');
+});
+
+test('loads inventory, exact current recipe query, and menu concurrently', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const inventoryRequest = deferred<InventoryItem[]>();
+  const recipesRequest = deferred<RecipeSummary[]>();
+  const menuRequest = deferred<TodayMenu>();
+  const app = createAppMock();
+  app.getInventory.mockReturnValue(inventoryRequest.promise);
+  app.getRecipes.mockReturnValue(recipesRequest.promise);
+  app.getTodayMenu.mockReturnValue(menuRequest.promise);
+  runtime.getApp = () => app;
+
+  const loading = definition.onShow.call(instance);
+
+  expect(app.getInventory).toHaveBeenCalledTimes(1);
+  expect(app.getRecipes).toHaveBeenCalledWith({
+    includeIngredientIds: [],
+    excludeIngredientIds: [],
+    onlyCookable: false,
+  });
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(1);
+
+  inventoryRequest.resolve([1, 2, 3, 4].map(inventoryItem));
+  recipesRequest.resolve([
+    recipe(8, [1, 5]),
+    recipe(9),
+    recipe(10),
+    recipe(11),
+  ]);
+  menuRequest.resolve(menu(4, [9]));
+  await loading;
+
+  expect(instance.data.loading).toBe(false);
+  expect(
+    instance.data.visibleIngredients.map((item) => item.ingredientId),
+  ).toEqual([1, 2, 3]);
+  expect(instance.data.featured?.id).toBe(8);
+  expect(instance.data.rows.map((item) => item.id)).toEqual([9, 10]);
+  expect(instance.data.rows[0].added).toBe(true);
+  expect(
+    instance.data.selectableIngredients.map((item) => item.ingredientId),
+  ).toEqual([1, 2, 3, 4, 5, 9, 10, 11]);
+});
+
+test('cycles ingredient filters and sends exclusion-wins exact queries', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getInventory.mockResolvedValue([inventoryItem(1), inventoryItem(2)]);
+  app.getRecipes.mockResolvedValue([recipe(7, [1, 2, 3])]);
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  await definition.onCycleIngredientFilter.call(instance, eventFor(1));
+  expect(app.getRecipes).toHaveBeenLastCalledWith({
+    includeIngredientIds: [1],
+    excludeIngredientIds: [],
+    onlyCookable: false,
+  });
+
+  await definition.onCycleIngredientFilter.call(instance, eventFor(1));
+  expect(app.getRecipes).toHaveBeenLastCalledWith({
+    includeIngredientIds: [],
+    excludeIngredientIds: [1],
+    onlyCookable: false,
+  });
+
+  instance.setData({
+    includeIngredientIds: [3, 2, 1],
+    excludeIngredientIds: [3, 4],
+  });
+  await definition.onToggleOnlyCookable.call(instance);
+  expect(app.getRecipes).toHaveBeenLastCalledWith({
+    includeIngredientIds: [1, 2],
+    excludeIngredientIds: [3, 4],
+    onlyCookable: true,
+  });
+  expect(instance.data.refreshing).toBe(false);
+  expect(instance.data.featured?.id).toBe(7);
+});
+
+test('ignores a stale filter response and keeps rendered data while refreshing', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getInventory.mockResolvedValue([inventoryItem(1), inventoryItem(2)]);
+  app.getRecipes.mockResolvedValueOnce([recipe(1, [1, 2])]);
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  const firstFilter = deferred<RecipeSummary[]>();
+  const secondFilter = deferred<RecipeSummary[]>();
+  app.getRecipes
+    .mockReturnValueOnce(firstFilter.promise)
+    .mockReturnValueOnce(secondFilter.promise);
+
+  const firstReload = definition.onCycleIngredientFilter.call(
+    instance,
+    eventFor(1),
+  );
+  expect(instance.data.refreshing).toBe(true);
+  expect(instance.data.featured?.id).toBe(1);
+  const secondReload = definition.onCycleIngredientFilter.call(
+    instance,
+    eventFor(2),
+  );
+
+  secondFilter.resolve([recipe(22, [2])]);
+  await secondReload;
+  firstFilter.resolve([recipe(11, [1])]);
+  await firstReload;
+
+  expect(instance.data.featured?.id).toBe(22);
+  expect(instance.data.refreshing).toBe(false);
+});
+
+test('ignores stale onShow inventory, recipe, and menu responses', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const oldInventory = deferred<InventoryItem[]>();
+  const oldRecipes = deferred<RecipeSummary[]>();
+  const oldMenu = deferred<TodayMenu>();
+  const app = createAppMock();
+  app.getInventory
+    .mockReturnValueOnce(oldInventory.promise)
+    .mockResolvedValueOnce([inventoryItem(20)]);
+  app.getRecipes
+    .mockReturnValueOnce(oldRecipes.promise)
+    .mockResolvedValueOnce([recipe(20)]);
+  app.getTodayMenu
+    .mockReturnValueOnce(oldMenu.promise)
+    .mockResolvedValueOnce(menu(20, [20]));
+  runtime.getApp = () => app;
+
+  const firstShow = definition.onShow.call(instance);
+  await definition.onShow.call(instance);
+  oldInventory.resolve([inventoryItem(10)]);
+  oldRecipes.resolve([recipe(10)]);
+  oldMenu.resolve(menu(10, [10]));
+  await firstShow;
+
+  expect(instance.data.inventory.map((item) => item.ingredientId)).toEqual([
+    20,
+  ]);
+  expect(instance.data.featured?.id).toBe(20);
+  expect(instance.data.menuVersion).toBe(20);
+  expect(instance.data.mySelectedRecipeIds).toEqual([20]);
+});
+
+test('keeps a partial load error visible with a retry after recipes succeed', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getInventory.mockRejectedValueOnce(new Error('inventory unavailable'));
+  app.getRecipes.mockResolvedValue([recipe(3)]);
+  runtime.getApp = () => app;
+
+  await definition.onShow.call(instance);
+
+  expect(instance.data.featured?.id).toBe(3);
+  expect(instance.data.loadErrorMessage).toBe('暂时加载失败，请稍后重试');
+  expect(readProjectFile('miniprogram/pages/recipes/index.wxml')).toContain(
+    'wx:if="{{loadErrorMessage}}"',
+  );
+});
+
+test('adds by sorted union, guards duplicates, and exposes already-added state', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getRecipes.mockResolvedValue([recipe(4)]);
+  app.getTodayMenu.mockResolvedValue(menu(5, [9, 2]));
+  app.saveSelections.mockResolvedValue(menu(6, [2, 4, 9]));
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+
+  expect(app.saveSelections).toHaveBeenCalledWith([2, 4, 9], 5);
+  expect(instance.data.menuVersion).toBe(6);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2, 4, 9]);
+  expect(instance.data.featured?.added).toBe(true);
+  expect(runtime.wx?.showToast).toHaveBeenCalledWith({
+    title: '已加入今晚菜单',
+    icon: 'success',
+  });
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+  expect(app.saveSelections).toHaveBeenCalledTimes(1);
+  expect(instance.data.actionMessage).toBe('这道菜已经在今晚菜单里');
+});
+
+test('reloads after conflict, preserves the pending recipe, and requires retry', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getRecipes.mockResolvedValue([recipe(4)]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(5, [2]))
+    .mockResolvedValueOnce(menu(7, [2, 8]));
+  app.saveSelections
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+    )
+    .mockResolvedValueOnce(menu(8, [2, 4, 8]));
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+
+  expect(app.saveSelections).toHaveBeenCalledTimes(1);
+  expect(instance.data.menuVersion).toBe(7);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2, 8]);
+  expect(instance.data.pendingRecipeId).toBe(4);
+  expect(instance.data.conflictMessage).toContain('重新');
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+
+  expect(app.saveSelections).toHaveBeenLastCalledWith([2, 4, 8], 7);
+  expect(instance.data.menuVersion).toBe(8);
+  expect(instance.data.pendingRecipeId).toBe(0);
+});
+
+test('does not let an older conflict reload regress a newer successful menu', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const conflictReload = deferred<TodayMenu>();
+  const app = createAppMock();
+  app.getRecipes.mockResolvedValue([recipe(4)]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(5, [2]))
+    .mockReturnValueOnce(conflictReload.promise);
+  app.saveSelections.mockResolvedValue(menu(8, [2, 4]));
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  const recovery = definition.recoverMenuConflict.call(instance, 4);
+  await definition.onAddToTonight.call(instance, eventFor(4));
+  conflictReload.resolve(menu(7, [2, 8]));
+  await recovery;
+
+  expect(instance.data.menuVersion).toBe(8);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2, 4]);
+  expect(instance.data.featured?.added).toBe(true);
+  expect(instance.data.pendingRecipeId).toBe(0);
+});
+
+test('opens inventory and gives an honest household-recipes unavailable message', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+
+  definition.onOpenIngredients.call(instance);
+  definition.onOpenHouseholdRecipes.call(instance);
+
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
+    url: '/pages/ingredients/index',
+  });
+  expect(runtime.wx?.showToast).toHaveBeenCalledWith({
+    title: '家庭菜谱暂未开放',
+    icon: 'none',
+  });
+});

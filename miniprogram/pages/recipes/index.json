@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "选今晚的菜",
+  "navigationBarTitleText": "找菜",
   "usingComponents": {
     "bottom-nav": "/components/bottom-nav/index"
   }

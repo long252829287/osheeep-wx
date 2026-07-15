@@ -1,114 +1,464 @@
 import { ApiError } from '../../services/request';
+import type { InventoryItem } from '../../types/ingredient';
 import type { TodayMenu } from '../../types/menu';
-import type { RecipeSummary } from '../../types/recipe';
+import type { RecipeDiscoveryQuery, RecipeSummary } from '../../types/recipe';
+import {
+  toRecipeDiscoveryView,
+  type RecipeCardView,
+} from '../../utils/recipe-discovery';
 import { toMenuErrorMessage } from '../../utils/menu-errors';
 
 interface OsheeepApp {
-  getRecipes: () => Promise<RecipeSummary[]>;
+  getInventory: () => Promise<InventoryItem[]>;
+  getRecipes: (query: RecipeDiscoveryQuery) => Promise<RecipeSummary[]>;
   getTodayMenu: () => Promise<TodayMenu>;
   saveSelections: (recipeIds: number[], version: number) => Promise<TodayMenu>;
 }
 
-interface RecipeView extends RecipeSummary {
-  selected: boolean;
+interface PageRecipeCard extends RecipeCardView {
+  added: boolean;
 }
 
-let selectedIds = new Set<number>();
-let baseVersion = 0;
+type FilterState = 'neutral' | 'include' | 'exclude';
+
+interface FilterIngredient {
+  ingredientId: number;
+  name: string;
+  state: FilterState;
+  stateLabel: string;
+}
+
+interface DiscoveryData {
+  loading: boolean;
+  refreshing: boolean;
+  inventory: InventoryItem[];
+  featured: PageRecipeCard | null;
+  rows: PageRecipeCard[];
+  pantrySummary: string;
+  visibleIngredients: InventoryItem[];
+  hasMoreIngredients: boolean;
+  filtersOpen: boolean;
+  selectableIngredients: FilterIngredient[];
+  onlyCookable: boolean;
+  includeIngredientIds: number[];
+  excludeIngredientIds: number[];
+  menuVersion: number;
+  mySelectedRecipeIds: number[];
+  savingRecipeId: number;
+  pendingRecipeId: number;
+  loadErrorMessage: string;
+  refreshMessage: string;
+  actionMessage: string;
+  conflictMessage: string;
+}
+
+let showRequestToken = 0;
+let recipeRequestToken = 0;
+let menuRequestToken = 0;
+
+const errorCodeOf = (error: unknown): string | undefined => {
+  if (error instanceof ApiError) return error.errorCode;
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'errorCode' in error &&
+    typeof error.errorCode === 'string'
+  ) {
+    return error.errorCode;
+  }
+  return undefined;
+};
+
+const requestErrorMessage = (error: unknown): string => {
+  const errorCode = errorCodeOf(error);
+  return errorCode ? toMenuErrorMessage(errorCode) : '暂时加载失败，请稍后重试';
+};
+
+const sortedUniqueIds = (ids: number[]): number[] =>
+  [...new Set(ids.filter((id) => Number.isFinite(id) && id > 0))].sort(
+    (left, right) => left - right,
+  );
+
+const normalizedFilterIds = (
+  includeIds: number[],
+  excludeIds: number[],
+): { includeIds: number[]; excludeIds: number[] } => {
+  const exclude = sortedUniqueIds(excludeIds);
+  const excluded = new Set(exclude);
+  return {
+    includeIds: sortedUniqueIds(includeIds).filter((id) => !excluded.has(id)),
+    excludeIds: exclude,
+  };
+};
+
+const filterStateLabel = (state: FilterState): string => {
+  if (state === 'include') return '想吃';
+  if (state === 'exclude') return '排除';
+  return '不限';
+};
+
+const filterIngredients = (
+  inventory: InventoryItem[],
+  recipes: RecipeSummary[],
+  previous: FilterIngredient[],
+  includeIds: number[],
+  excludeIds: number[],
+): FilterIngredient[] => {
+  const names = new Map<number, string>();
+  for (const item of previous) names.set(item.ingredientId, item.name);
+  for (const item of inventory) names.set(item.ingredientId, item.name);
+  for (const recipe of recipes) {
+    for (const ingredient of recipe.ingredients) {
+      names.set(ingredient.ingredientId, ingredient.name);
+    }
+  }
+  const include = new Set(includeIds);
+  const exclude = new Set(excludeIds);
+  return [...names]
+    .sort(([left], [right]) => left - right)
+    .map(([ingredientId, name]) => {
+      const state: FilterState = exclude.has(ingredientId)
+        ? 'exclude'
+        : include.has(ingredientId)
+          ? 'include'
+          : 'neutral';
+      return {
+        ingredientId,
+        name,
+        state,
+        stateLabel: filterStateLabel(state),
+      };
+    });
+};
+
+const recipeSummariesFrom = (data: DiscoveryData): RecipeSummary[] => [
+  ...(data.featured ? [data.featured] : []),
+  ...data.rows,
+];
+
+const decorateCard = (
+  card: RecipeCardView,
+  selectedIds: number[],
+): PageRecipeCard => ({
+  ...card,
+  added: selectedIds.includes(card.id),
+});
 
 Page({
   data: {
     loading: true,
-    recipes: [] as RecipeView[],
-    selectedCount: 0,
-    saving: false,
-    completed: false,
-    errorMessage: '',
+    refreshing: false,
+    inventory: [] as InventoryItem[],
+    featured: null as PageRecipeCard | null,
+    rows: [] as PageRecipeCard[],
+    pantrySummary: '家里有 0 种食材',
+    visibleIngredients: [] as InventoryItem[],
+    hasMoreIngredients: false,
+    filtersOpen: false,
+    selectableIngredients: [] as FilterIngredient[],
+    onlyCookable: false,
+    includeIngredientIds: [] as number[],
+    excludeIngredientIds: [] as number[],
+    menuVersion: 0,
+    mySelectedRecipeIds: [] as number[],
+    savingRecipeId: 0,
+    pendingRecipeId: 0,
+    loadErrorMessage: '',
+    refreshMessage: '',
+    actionMessage: '',
     conflictMessage: '',
   },
 
   async onShow() {
-    this.setData({ loading: true, errorMessage: '', conflictMessage: '' });
-    try {
-      const app = getApp<OsheeepApp>();
-      const [recipes, menu] = await Promise.all([
-        app.getRecipes(),
-        app.getTodayMenu(),
-      ]);
-      selectedIds = new Set(menu.selectedRecipeIds);
-      baseVersion = menu.version;
-      this.setData({
-        recipes: recipes.map((recipe) => ({
-          ...recipe,
-          selected: selectedIds.has(recipe.id),
-        })),
-        selectedCount: selectedIds.size,
-        completed: menu.status === 'COMPLETED',
+    const showToken = ++showRequestToken;
+    const recipesToken = ++recipeRequestToken;
+    const menuToken = ++menuRequestToken;
+    const hasRenderedRecipes = Boolean(
+      this.data.featured || this.data.rows.length,
+    );
+    this.setData({
+      loading: !hasRenderedRecipes,
+      refreshing: hasRenderedRecipes,
+      loadErrorMessage: '',
+      refreshMessage: '',
+      actionMessage: '',
+    });
+
+    const app = getApp<OsheeepApp>();
+    const inventoryRequest = app
+      .getInventory()
+      .then((inventory) => {
+        if (showToken !== showRequestToken) return;
+        this.applyInventory(inventory);
+      })
+      .catch((error: unknown) => {
+        if (showToken !== showRequestToken) return;
+        this.setData({ loadErrorMessage: requestErrorMessage(error) });
       });
-    } catch (error) {
-      this.setData({ errorMessage: this.getErrorMessage(error) });
-    } finally {
-      this.setData({ loading: false });
+    const recipesRequest = app
+      .getRecipes(this.currentQuery())
+      .then((recipes) => {
+        if (recipesToken !== recipeRequestToken) return;
+        this.applyRecipes(recipes);
+      })
+      .catch((error: unknown) => {
+        if (recipesToken !== recipeRequestToken) return;
+        const message = requestErrorMessage(error);
+        this.setData(
+          hasRenderedRecipes
+            ? { refreshMessage: message }
+            : { loadErrorMessage: message },
+        );
+      });
+    const menuRequest = app
+      .getTodayMenu()
+      .then((menu) => {
+        if (menuToken !== menuRequestToken) return;
+        this.applyMenu(menu);
+      })
+      .catch((error: unknown) => {
+        if (menuToken !== menuRequestToken) return;
+        this.setData({ loadErrorMessage: requestErrorMessage(error) });
+      });
+
+    await Promise.allSettled([inventoryRequest, recipesRequest, menuRequest]);
+    if (showToken === showRequestToken) this.setData({ loading: false });
+    if (recipesToken === recipeRequestToken) {
+      this.setData({ refreshing: false });
     }
   },
 
-  onToggleRecipe(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.completed) return;
-    const recipeId = Number(event.currentTarget.dataset.id);
-    if (selectedIds.has(recipeId)) selectedIds.delete(recipeId);
-    else selectedIds.add(recipeId);
+  async onRetry() {
+    await this.onShow();
+  },
+
+  currentQuery(): RecipeDiscoveryQuery {
+    const { includeIds, excludeIds } = normalizedFilterIds(
+      this.data.includeIngredientIds,
+      this.data.excludeIngredientIds,
+    );
+    return {
+      includeIngredientIds: includeIds,
+      excludeIngredientIds: excludeIds,
+      onlyCookable: this.data.onlyCookable,
+    };
+  },
+
+  applyInventory(inventory: InventoryItem[]) {
+    const view = toRecipeDiscoveryView(
+      recipeSummariesFrom(this.data),
+      inventory,
+      this.data.onlyCookable,
+    );
     this.setData({
-      recipes: this.data.recipes.map((recipe) => ({
-        ...recipe,
-        selected: selectedIds.has(recipe.id),
-      })),
-      selectedCount: selectedIds.size,
-      conflictMessage: '',
+      inventory,
+      pantrySummary: view.pantrySummary,
+      visibleIngredients: view.visibleIngredients,
+      hasMoreIngredients: view.hasMoreIngredients,
+      selectableIngredients: filterIngredients(
+        inventory,
+        recipeSummariesFrom(this.data),
+        this.data.selectableIngredients,
+        this.data.includeIngredientIds,
+        this.data.excludeIngredientIds,
+      ),
     });
   },
 
-  async onSaveSelections() {
-    if (this.data.completed) {
-      wx.reLaunch({ url: '/pages/tonight/index' });
+  applyRecipes(recipes: RecipeSummary[]) {
+    const view = toRecipeDiscoveryView(
+      recipes,
+      this.data.inventory,
+      this.data.onlyCookable,
+    );
+    this.setData({
+      featured: view.featured
+        ? decorateCard(view.featured, this.data.mySelectedRecipeIds)
+        : null,
+      rows: view.rows.map((row) =>
+        decorateCard(row, this.data.mySelectedRecipeIds),
+      ),
+      pantrySummary: view.pantrySummary,
+      visibleIngredients: view.visibleIngredients,
+      hasMoreIngredients: view.hasMoreIngredients,
+      selectableIngredients: filterIngredients(
+        this.data.inventory,
+        recipes,
+        this.data.selectableIngredients,
+        this.data.includeIngredientIds,
+        this.data.excludeIngredientIds,
+      ),
+      refreshMessage: '',
+    });
+  },
+
+  applyMenu(menu: TodayMenu) {
+    if (menu.version < this.data.menuVersion) return;
+    const mySelectedRecipeIds = sortedUniqueIds(menu.selectedRecipeIds);
+    this.setData({
+      menuVersion: menu.version,
+      mySelectedRecipeIds,
+      featured: this.data.featured
+        ? decorateCard(this.data.featured, mySelectedRecipeIds)
+        : null,
+      rows: this.data.rows.map((row) => decorateCard(row, mySelectedRecipeIds)),
+    });
+  },
+
+  async reloadRecipes() {
+    const token = ++recipeRequestToken;
+    const { includeIds, excludeIds } = normalizedFilterIds(
+      this.data.includeIngredientIds,
+      this.data.excludeIngredientIds,
+    );
+    this.setData({
+      includeIngredientIds: includeIds,
+      excludeIngredientIds: excludeIds,
+      refreshing: true,
+      refreshMessage: '',
+      actionMessage: '',
+    });
+    try {
+      const recipes = await getApp<OsheeepApp>().getRecipes({
+        includeIngredientIds: includeIds,
+        excludeIngredientIds: excludeIds,
+        onlyCookable: this.data.onlyCookable,
+      });
+      if (token !== recipeRequestToken) return;
+      this.applyRecipes(recipes);
+    } catch (error) {
+      if (token !== recipeRequestToken) return;
+      this.setData({ refreshMessage: requestErrorMessage(error) });
+    } finally {
+      if (token === recipeRequestToken) this.setData({ refreshing: false });
+    }
+  },
+
+  onToggleFiltersPanel() {
+    this.setData({ filtersOpen: !this.data.filtersOpen });
+  },
+
+  async onCycleIngredientFilter(event: WechatMiniprogram.TouchEvent) {
+    const ingredientId = Number(event.currentTarget.dataset.id);
+    if (!Number.isFinite(ingredientId) || ingredientId <= 0) return;
+    const include = new Set(this.data.includeIngredientIds);
+    const exclude = new Set(this.data.excludeIngredientIds);
+    if (exclude.has(ingredientId)) {
+      exclude.delete(ingredientId);
+    } else if (include.has(ingredientId)) {
+      include.delete(ingredientId);
+      exclude.add(ingredientId);
+    } else {
+      include.add(ingredientId);
+      exclude.delete(ingredientId);
+    }
+    const { includeIds, excludeIds } = normalizedFilterIds(
+      [...include],
+      [...exclude],
+    );
+    this.setData({
+      includeIngredientIds: includeIds,
+      excludeIngredientIds: excludeIds,
+      selectableIngredients: filterIngredients(
+        this.data.inventory,
+        recipeSummariesFrom(this.data),
+        this.data.selectableIngredients,
+        includeIds,
+        excludeIds,
+      ),
+    });
+    await this.reloadRecipes();
+  },
+
+  async onResetFilters() {
+    this.setData({
+      onlyCookable: false,
+      includeIngredientIds: [],
+      excludeIngredientIds: [],
+      selectableIngredients: filterIngredients(
+        this.data.inventory,
+        recipeSummariesFrom(this.data),
+        this.data.selectableIngredients,
+        [],
+        [],
+      ),
+    });
+    await this.reloadRecipes();
+  },
+
+  async onToggleOnlyCookable() {
+    this.setData({ onlyCookable: !this.data.onlyCookable });
+    await this.reloadRecipes();
+  },
+
+  async onAddToTonight(event: WechatMiniprogram.TouchEvent) {
+    const recipeId = Number(event.currentTarget.dataset.id);
+    if (!Number.isFinite(recipeId) || recipeId <= 0 || this.data.savingRecipeId)
+      return;
+    if (this.data.mySelectedRecipeIds.includes(recipeId)) {
+      this.setData({
+        actionMessage: '这道菜已经在今晚菜单里',
+        conflictMessage: '',
+      });
       return;
     }
-    if (this.data.saving) return;
-    this.setData({ saving: true, errorMessage: '' });
+
+    const nextIds = sortedUniqueIds([
+      ...this.data.mySelectedRecipeIds,
+      recipeId,
+    ]);
+    const saveToken = ++menuRequestToken;
+    this.setData({
+      savingRecipeId: recipeId,
+      actionMessage: '',
+      conflictMessage: '',
+    });
     try {
-      await getApp<OsheeepApp>().saveSelections(
-        [...selectedIds].sort((left, right) => left - right),
-        baseVersion,
+      const saved = await getApp<OsheeepApp>().saveSelections(
+        nextIds,
+        this.data.menuVersion,
       );
-      wx.reLaunch({ url: '/pages/tonight/index' });
+      if (saveToken !== menuRequestToken) return;
+      this.applyMenu({ ...saved, selectedRecipeIds: nextIds });
+      this.setData({ savingRecipeId: 0, pendingRecipeId: 0 });
+      wx.showToast({ title: '已加入今晚菜单', icon: 'success' });
     } catch (error) {
-      if (
-        error instanceof ApiError &&
-        error.errorCode === 'DINNER_MENU_VERSION_CONFLICT'
-      ) {
-        await this.recoverFromConflict();
-      } else {
-        this.setData({ errorMessage: this.getErrorMessage(error) });
+      if (saveToken !== menuRequestToken) return;
+      if (errorCodeOf(error) === 'DINNER_MENU_VERSION_CONFLICT') {
+        await this.recoverMenuConflict(recipeId);
+        return;
       }
-    } finally {
-      this.setData({ saving: false });
+      this.setData({
+        savingRecipeId: 0,
+        actionMessage: requestErrorMessage(error),
+      });
     }
   },
 
-  async recoverFromConflict() {
+  async recoverMenuConflict(recipeId: number) {
+    const token = ++menuRequestToken;
+    this.setData({
+      pendingRecipeId: recipeId,
+      conflictMessage:
+        '今晚菜单刚刚有更新，已保留这道菜，请确认最新菜单后重新尝试',
+    });
     try {
       const latest = await getApp<OsheeepApp>().getTodayMenu();
-      baseVersion = latest.version;
-      this.setData({
-        conflictMessage: toMenuErrorMessage('DINNER_MENU_VERSION_CONFLICT'),
-      });
+      if (token !== menuRequestToken) return;
+      this.applyMenu(latest);
     } catch (error) {
-      this.setData({ errorMessage: this.getErrorMessage(error) });
+      if (token !== menuRequestToken) return;
+      this.setData({ actionMessage: requestErrorMessage(error) });
+    } finally {
+      if (token === menuRequestToken) this.setData({ savingRecipeId: 0 });
     }
   },
 
-  getErrorMessage(error: unknown) {
-    return error instanceof ApiError
-      ? toMenuErrorMessage(error.errorCode)
-      : '操作失败，请稍后重试';
+  onOpenHouseholdRecipes() {
+    wx.showToast({ title: '家庭菜谱暂未开放', icon: 'none' });
+  },
+
+  onOpenIngredients() {
+    wx.navigateTo({ url: '/pages/ingredients/index' });
   },
 });

@@ -14,7 +14,7 @@
     "pages/account-deletion/index"
   ],
   "window": {
-    "navigationBarTitleText": "今晚吃什么",
+    "navigationBarTitleText": "小家开饭",
     "navigationBarBackgroundColor": "#FFF8EE",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#FFF8EE"

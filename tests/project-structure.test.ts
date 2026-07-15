@@ -65,6 +65,11 @@ test.each([
 
 test('uses the approved product name in runtime surfaces', () => {
   const project = readFileSync(resolve(root, 'project.config.json'), 'utf8');
+  const app = readFileSync(resolve(root, 'miniprogram/app.json'), 'utf8');
+  const onboardingConfig = readFileSync(
+    resolve(root, 'miniprogram/pages/onboarding/index.json'),
+    'utf8',
+  );
   const onboarding = readFileSync(
     resolve(root, 'miniprogram/pages/onboarding/index.wxml'),
     'utf8',
@@ -74,8 +79,14 @@ test('uses the approved product name in runtime surfaces', () => {
     'utf8',
   );
 
-  expect(project).toContain('"projectname": "今晚吃什么"');
-  expect(onboarding).toContain('今晚吃什么');
+  expect(project).toContain('"projectname": "小家开饭"');
+  expect(app).toContain('"navigationBarTitleText": "小家开饭"');
+  expect(onboardingConfig).toContain('"navigationBarTitleText": "小家开饭"');
+  expect(onboarding).toContain(
+    '<view class="brand" aria-label="小家开饭">小家开饭</view>',
+  );
+  expect(onboarding).toContain('<text class="title-me">今晚吃什么，</text>');
+  expect(household).toContain('<text class="eyebrow">小家开饭</text>');
   expect(onboarding).not.toContain('双人协商桌');
   expect(household).not.toContain('双人协商桌');
 });

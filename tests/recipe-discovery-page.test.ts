@@ -30,6 +30,7 @@ interface FilterIngredient {
 interface RecipePageData {
   loading: boolean;
   refreshing: boolean;
+  recipesLoaded: boolean;
   inventory: InventoryItem[];
   featured: PageRecipeCard | null;
   rows: PageRecipeCard[];
@@ -56,7 +57,7 @@ interface RecipePageInstance {
   setData(update: Partial<RecipePageData>): void;
   onShow(): Promise<void>;
   onRetry(): Promise<void>;
-  onToggleOnlyCookable(): Promise<void>;
+  onToggleOnlyCookable(event: SwitchEvent): Promise<void>;
   onToggleFiltersPanel(): void;
   onCycleIngredientFilter(event: RecipeEvent): Promise<void>;
   onResetFilters(): Promise<void>;
@@ -74,6 +75,10 @@ interface RecipePageDefinition extends RecipePageInstance {
 
 interface RecipeEvent {
   currentTarget: { dataset: { id?: number | string } };
+}
+
+interface SwitchEvent {
+  detail: { value: boolean };
 }
 
 interface AppMock {
@@ -225,6 +230,8 @@ const eventFor = (id: number): RecipeEvent => ({
   currentTarget: { dataset: { id } },
 });
 
+const switchEvent = (value: boolean): SwitchEvent => ({ detail: { value } });
+
 beforeEach(() => {
   runtime.wx = {
     showToast: jest.fn(),
@@ -331,7 +338,7 @@ test('cycles ingredient filters and sends exclusion-wins exact queries', async (
     includeIngredientIds: [3, 2, 1],
     excludeIngredientIds: [3, 4],
   });
-  await definition.onToggleOnlyCookable.call(instance);
+  await definition.onToggleOnlyCookable.call(instance, switchEvent(true));
   expect(app.getRecipes).toHaveBeenLastCalledWith({
     includeIngredientIds: [1, 2],
     excludeIngredientIds: [3, 4],
@@ -426,6 +433,83 @@ test('keeps a partial load error visible with a retry after recipes succeed', as
   );
 });
 
+test.each(['inventory', 'menu'] as const)(
+  'renders a successful empty recipe result with a partial %s error',
+  async (failedRequest) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const app = createAppMock();
+    app.getRecipes.mockResolvedValue([]);
+    if (failedRequest === 'inventory') {
+      app.getInventory.mockRejectedValueOnce(
+        new Error('inventory unavailable'),
+      );
+    } else {
+      app.getTodayMenu.mockRejectedValueOnce(new Error('menu unavailable'));
+    }
+    runtime.getApp = () => app;
+
+    await definition.onShow.call(instance);
+
+    expect(instance.data.recipesLoaded).toBe(true);
+    expect(instance.data.featured).toBeNull();
+    expect(instance.data.rows).toEqual([]);
+    expect(instance.data.loading).toBe(false);
+    expect(instance.data.loadErrorMessage).toBe('暂时加载失败，请稍后重试');
+
+    const wxml = readProjectFile('miniprogram/pages/recipes/index.wxml');
+    expect(wxml).toContain('loadErrorMessage && !recipesLoaded');
+    expect(wxml).toContain('recipesLoaded && !featured');
+  },
+);
+
+test('retains a successful empty recipe result while onShow refreshes it', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getRecipes.mockResolvedValueOnce([]);
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  const refresh = deferred<RecipeSummary[]>();
+  app.getRecipes.mockReturnValueOnce(refresh.promise);
+  const revisiting = definition.onShow.call(instance);
+
+  expect(instance.data.recipesLoaded).toBe(true);
+  expect(instance.data.loading).toBe(false);
+  expect(instance.data.refreshing).toBe(true);
+  expect(instance.data.featured).toBeNull();
+  expect(instance.data.rows).toEqual([]);
+
+  refresh.resolve([]);
+  await revisiting;
+  expect(instance.data.recipesLoaded).toBe(true);
+  expect(instance.data.refreshing).toBe(false);
+});
+
+test.each([
+  { current: false, emitted: false },
+  { current: true, emitted: true },
+])(
+  'uses switch detail value $emitted even when the model is already $current',
+  async ({ current, emitted }) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const app = createAppMock();
+    runtime.getApp = () => app;
+    instance.setData({ onlyCookable: current });
+
+    await definition.onToggleOnlyCookable.call(instance, switchEvent(emitted));
+
+    expect(instance.data.onlyCookable).toBe(emitted);
+    expect(app.getRecipes).toHaveBeenCalledWith({
+      includeIngredientIds: [],
+      excludeIngredientIds: [],
+      onlyCookable: emitted,
+    });
+  },
+);
+
 test('adds by sorted union, guards duplicates, and exposes already-added state', async () => {
   const definition = await loadRecipePage();
   const instance = createInstance(definition);
@@ -506,6 +590,165 @@ test('does not let an older conflict reload regress a newer successful menu', as
   expect(instance.data.featured?.added).toBe(true);
   expect(instance.data.pendingRecipeId).toBe(0);
 });
+
+test.each([
+  {
+    label: 'the newer read resolves first',
+    resolutionOrder: 'read-first',
+    readMenu: menu(7, [2, 9]),
+    saveMenu: menu(6, [2, 4]),
+    expectedIds: [2, 9],
+  },
+  {
+    label: 'the newer read resolves last',
+    resolutionOrder: 'save-first',
+    readMenu: menu(7, [2, 9]),
+    saveMenu: menu(6, [2, 4]),
+    expectedIds: [2, 9],
+  },
+  {
+    label: 'the newer save resolves first',
+    resolutionOrder: 'save-first',
+    readMenu: menu(6, [2, 9]),
+    saveMenu: menu(7, [2, 4]),
+    expectedIds: [2, 4],
+  },
+  {
+    label: 'the newer save resolves last',
+    resolutionOrder: 'read-first',
+    readMenu: menu(6, [2, 9]),
+    saveMenu: menu(7, [2, 4]),
+    expectedIds: [2, 4],
+  },
+] as const)(
+  'clears a pending save across onShow when $label',
+  async ({ resolutionOrder, readMenu, saveMenu, expectedIds }) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const saveRequest = deferred<TodayMenu>();
+    const readRequest = deferred<TodayMenu>();
+    const app = createAppMock();
+    app.getRecipes.mockResolvedValue([recipe(4), recipe(6)]);
+    app.getTodayMenu
+      .mockResolvedValueOnce(menu(5, [2]))
+      .mockReturnValueOnce(readRequest.promise);
+    app.saveSelections
+      .mockReturnValueOnce(saveRequest.promise)
+      .mockResolvedValueOnce(menu(10));
+    runtime.getApp = () => app;
+    await definition.onShow.call(instance);
+
+    const saving = definition.onAddToTonight.call(instance, eventFor(4));
+    const revisiting = definition.onShow.call(instance);
+    if (resolutionOrder === 'read-first') {
+      readRequest.resolve(readMenu);
+      await revisiting;
+      saveRequest.resolve(saveMenu);
+      await saving;
+    } else {
+      saveRequest.resolve(saveMenu);
+      await saving;
+      readRequest.resolve(readMenu);
+      await revisiting;
+    }
+
+    expect(instance.data.savingRecipeId).toBe(0);
+    expect(instance.data.menuVersion).toBe(7);
+    expect(instance.data.mySelectedRecipeIds).toEqual(expectedIds);
+
+    await definition.onAddToTonight.call(instance, eventFor(6));
+    expect(app.saveSelections).toHaveBeenLastCalledWith(
+      [...expectedIds, 6].sort((left, right) => left - right),
+      7,
+    );
+    expect(instance.data.savingRecipeId).toBe(0);
+    expect(instance.data.menuVersion).toBe(10);
+  },
+);
+
+test.each([
+  {
+    label: 'the newer read resolves first',
+    resolutionOrder: 'read-first',
+    readMenu: menu(8, [2, 9]),
+    recoveryMenu: menu(7, [2, 8]),
+    expectedIds: [2, 9],
+  },
+  {
+    label: 'the newer read resolves last',
+    resolutionOrder: 'recovery-first',
+    readMenu: menu(8, [2, 9]),
+    recoveryMenu: menu(7, [2, 8]),
+    expectedIds: [2, 9],
+  },
+  {
+    label: 'the newer recovery resolves first',
+    resolutionOrder: 'recovery-first',
+    readMenu: menu(7, [2, 9]),
+    recoveryMenu: menu(8, [2, 8]),
+    expectedIds: [2, 8],
+  },
+  {
+    label: 'the newer recovery resolves last',
+    resolutionOrder: 'read-first',
+    readMenu: menu(7, [2, 9]),
+    recoveryMenu: menu(8, [2, 8]),
+    expectedIds: [2, 8],
+  },
+] as const)(
+  'keeps conflict recovery usable across onShow when $label',
+  async ({ resolutionOrder, readMenu, recoveryMenu, expectedIds }) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const recoveryRequest = deferred<TodayMenu>();
+    const readRequest = deferred<TodayMenu>();
+    const app = createAppMock();
+    app.getRecipes.mockResolvedValue([recipe(4)]);
+    app.getTodayMenu
+      .mockResolvedValueOnce(menu(5, [2]))
+      .mockReturnValueOnce(recoveryRequest.promise)
+      .mockReturnValueOnce(readRequest.promise);
+    app.saveSelections
+      .mockRejectedValueOnce(
+        new ApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+      )
+      .mockResolvedValueOnce(menu(10));
+    runtime.getApp = () => app;
+    await definition.onShow.call(instance);
+
+    const recovering = definition.onAddToTonight.call(instance, eventFor(4));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+    const revisiting = definition.onShow.call(instance);
+
+    if (resolutionOrder === 'read-first') {
+      readRequest.resolve(readMenu);
+      await revisiting;
+      recoveryRequest.resolve(recoveryMenu);
+      await recovering;
+    } else {
+      recoveryRequest.resolve(recoveryMenu);
+      await recovering;
+      readRequest.resolve(readMenu);
+      await revisiting;
+    }
+
+    expect(instance.data.savingRecipeId).toBe(0);
+    expect(instance.data.pendingRecipeId).toBe(4);
+    expect(instance.data.menuVersion).toBe(8);
+    expect(instance.data.mySelectedRecipeIds).toEqual(expectedIds);
+
+    await definition.onAddToTonight.call(instance, eventFor(4));
+    expect(app.saveSelections).toHaveBeenLastCalledWith(
+      [...expectedIds, 4].sort((left, right) => left - right),
+      8,
+    );
+    expect(instance.data.savingRecipeId).toBe(0);
+    expect(instance.data.pendingRecipeId).toBe(0);
+    expect(instance.data.menuVersion).toBe(10);
+  },
+);
 
 test('opens inventory and gives an honest household-recipes unavailable message', async () => {
   const definition = await loadRecipePage();

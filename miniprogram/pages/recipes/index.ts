@@ -31,6 +31,7 @@ interface FilterIngredient {
 interface DiscoveryData {
   loading: boolean;
   refreshing: boolean;
+  recipesLoaded: boolean;
   inventory: InventoryItem[];
   featured: PageRecipeCard | null;
   rows: PageRecipeCard[];
@@ -54,7 +55,8 @@ interface DiscoveryData {
 
 let showRequestToken = 0;
 let recipeRequestToken = 0;
-let menuRequestToken = 0;
+let menuReadRequestToken = 0;
+let menuOperationToken = 0;
 
 const errorCodeOf = (error: unknown): string | undefined => {
   if (error instanceof ApiError) return error.errorCode;
@@ -148,6 +150,7 @@ Page({
   data: {
     loading: true,
     refreshing: false,
+    recipesLoaded: false,
     inventory: [] as InventoryItem[],
     featured: null as PageRecipeCard | null,
     rows: [] as PageRecipeCard[],
@@ -172,13 +175,11 @@ Page({
   async onShow() {
     const showToken = ++showRequestToken;
     const recipesToken = ++recipeRequestToken;
-    const menuToken = ++menuRequestToken;
-    const hasRenderedRecipes = Boolean(
-      this.data.featured || this.data.rows.length,
-    );
+    const menuReadToken = ++menuReadRequestToken;
+    const hasLoadedRecipes = this.data.recipesLoaded;
     this.setData({
-      loading: !hasRenderedRecipes,
-      refreshing: hasRenderedRecipes,
+      loading: !hasLoadedRecipes,
+      refreshing: hasLoadedRecipes,
       loadErrorMessage: '',
       refreshMessage: '',
       actionMessage: '',
@@ -205,7 +206,7 @@ Page({
         if (recipesToken !== recipeRequestToken) return;
         const message = requestErrorMessage(error);
         this.setData(
-          hasRenderedRecipes
+          hasLoadedRecipes
             ? { refreshMessage: message }
             : { loadErrorMessage: message },
         );
@@ -213,11 +214,11 @@ Page({
     const menuRequest = app
       .getTodayMenu()
       .then((menu) => {
-        if (menuToken !== menuRequestToken) return;
+        if (menuReadToken !== menuReadRequestToken) return;
         this.applyMenu(menu);
       })
       .catch((error: unknown) => {
-        if (menuToken !== menuRequestToken) return;
+        if (menuReadToken !== menuReadRequestToken) return;
         this.setData({ loadErrorMessage: requestErrorMessage(error) });
       });
 
@@ -272,6 +273,7 @@ Page({
       this.data.onlyCookable,
     );
     this.setData({
+      recipesLoaded: true,
       featured: view.featured
         ? decorateCard(view.featured, this.data.mySelectedRecipeIds)
         : null,
@@ -386,8 +388,8 @@ Page({
     await this.reloadRecipes();
   },
 
-  async onToggleOnlyCookable() {
-    this.setData({ onlyCookable: !this.data.onlyCookable });
+  async onToggleOnlyCookable(event: WechatMiniprogram.SwitchChange) {
+    this.setData({ onlyCookable: event.detail.value });
     await this.reloadRecipes();
   },
 
@@ -407,7 +409,7 @@ Page({
       ...this.data.mySelectedRecipeIds,
       recipeId,
     ]);
-    const saveToken = ++menuRequestToken;
+    const operationToken = ++menuOperationToken;
     this.setData({
       savingRecipeId: recipeId,
       actionMessage: '',
@@ -418,25 +420,29 @@ Page({
         nextIds,
         this.data.menuVersion,
       );
-      if (saveToken !== menuRequestToken) return;
+      if (operationToken !== menuOperationToken) return;
       this.applyMenu({ ...saved, selectedRecipeIds: nextIds });
-      this.setData({ savingRecipeId: 0, pendingRecipeId: 0 });
+      this.setData({ pendingRecipeId: 0 });
       wx.showToast({ title: '已加入今晚菜单', icon: 'success' });
     } catch (error) {
-      if (saveToken !== menuRequestToken) return;
+      if (operationToken !== menuOperationToken) return;
       if (errorCodeOf(error) === 'DINNER_MENU_VERSION_CONFLICT') {
-        await this.recoverMenuConflict(recipeId);
+        await this.recoverMenuConflict(recipeId, operationToken);
         return;
       }
-      this.setData({
-        savingRecipeId: 0,
-        actionMessage: requestErrorMessage(error),
-      });
+      this.setData({ actionMessage: requestErrorMessage(error) });
+    } finally {
+      if (
+        operationToken === menuOperationToken &&
+        this.data.savingRecipeId === recipeId
+      ) {
+        this.setData({ savingRecipeId: 0 });
+      }
     }
   },
 
-  async recoverMenuConflict(recipeId: number) {
-    const token = ++menuRequestToken;
+  async recoverMenuConflict(recipeId: number, activeOperationToken?: number) {
+    const operationToken = activeOperationToken ?? ++menuOperationToken;
     this.setData({
       pendingRecipeId: recipeId,
       conflictMessage:
@@ -444,13 +450,11 @@ Page({
     });
     try {
       const latest = await getApp<OsheeepApp>().getTodayMenu();
-      if (token !== menuRequestToken) return;
+      if (operationToken !== menuOperationToken) return;
       this.applyMenu(latest);
     } catch (error) {
-      if (token !== menuRequestToken) return;
+      if (operationToken !== menuOperationToken) return;
       this.setData({ actionMessage: requestErrorMessage(error) });
-    } finally {
-      if (token === menuRequestToken) this.setData({ savingRecipeId: 0 });
     }
   },
 

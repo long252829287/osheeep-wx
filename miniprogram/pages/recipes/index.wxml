@@ -6,7 +6,7 @@
 
   <view wx:if="{{loading}}" class="status-state">正在看看家里能做什么…</view>
 
-  <view wx:elif="{{loadErrorMessage && !featured}}" class="request-state" role="alert">
+  <view wx:elif="{{loadErrorMessage && !recipesLoaded}}" class="request-state" role="alert">
     <text class="request-title">暂时没能准备好菜谱</text>
     <text class="request-copy">{{loadErrorMessage}}</text>
     <button class="retry-button" bindtap="onRetry">重新加载</button>
@@ -85,7 +85,7 @@
       </view>
     </view>
 
-    <view wx:if="{{!featured}}" class="empty-recipes">
+    <view wx:if="{{recipesLoaded && !featured}}" class="empty-recipes">
       <text class="empty-title">暂时没有合适的菜</text>
       <text class="empty-copy">换一组食材条件，或者关闭“只看能做”试试</text>
       <button class="empty-reset" bindtap="onResetFilters">清除筛选</button>

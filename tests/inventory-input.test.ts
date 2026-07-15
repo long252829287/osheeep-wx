@@ -4,6 +4,7 @@ test.each([
   ['', undefined],
   ['   ', undefined],
   ['0', 0],
+  ['000001.230', 1.23],
   ['8.5', 8.5],
   ['999999999.999', 999999999.999],
 ] as const)('parses valid inventory quantity %p', (input, expected) => {
@@ -12,6 +13,8 @@ test.each([
 
 test.each([
   '-1',
+  '1.',
+  '1e2',
   'abc',
   'Infinity',
   'NaN',

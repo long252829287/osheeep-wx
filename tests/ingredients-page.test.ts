@@ -36,8 +36,10 @@ interface IngredientsData {
   items: IngredientPageItem[];
   groups: IngredientGroup[];
   searchQuery: string;
+  emptySearch: boolean;
   loadErrorMessage: string;
   hasInventory: boolean;
+  catalogEmpty: boolean;
 }
 
 interface IngredientsInstance {
@@ -175,6 +177,29 @@ const createAppMock = (options?: {
     .mockResolvedValue(inventoryItem(1)),
 });
 
+const deferred = <T>() => {
+  let resolvePromise: ((value: T) => void) | undefined;
+  let rejectPromise: ((reason: unknown) => void) | undefined;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+  return {
+    promise,
+    resolve(value: T) {
+      resolvePromise?.(value);
+    },
+    reject(reason: unknown) {
+      rejectPromise?.(reason);
+    },
+  };
+};
+
+const flushPromises = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 afterEach(() => {
   if (originalGetApp) runtime.getApp = originalGetApp;
   else delete runtime.getApp;
@@ -195,6 +220,8 @@ test('renders a quiet grouped utility list with every required state', () => {
   expect(wxml).toContain('数量未知');
   expect(wxml).toContain('还没有记录库存');
   expect(wxml).toContain('没有找到匹配的食材');
+  expect(wxml).toContain('wx:if="{{catalogEmpty}}"');
+  expect(wxml).toContain('wx:if="{{!hasInventory && !emptySearch}}"');
   expect(wxml).toContain('wx:for="{{groups}}"');
   expect(wxml).toContain('wx:for="{{item.items}}"');
   expect(wxss).toContain('border-bottom: 1rpx solid');
@@ -367,6 +394,140 @@ test('prevents a duplicate concurrent save for the same row', async () => {
   await Promise.all([first, second]);
 });
 
+test('preserves another concurrent save while a conflict refresh is applied', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const refreshedInventory = deferred<InventoryItem[]>();
+  const secondSave = deferred<InventoryItem>();
+  const app = createAppMock({
+    ingredients: [
+      ingredient(1, '番茄', '蔬菜', '个'),
+      ingredient(2, '鸡蛋', '蛋奶', '枚'),
+    ],
+    inventory: [
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ])
+    .mockImplementationOnce(() => refreshedInventory.promise);
+  app.saveInventoryItem.mockImplementation((ingredientId) =>
+    ingredientId === 1
+      ? Promise.reject(
+          new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
+        )
+      : secondSave.promise,
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '8' },
+    currentTarget: { dataset: { id: 2 } },
+  });
+
+  const conflictSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+  const concurrentSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 2 } },
+  });
+  await flushPromises();
+  refreshedInventory.resolve([
+    inventoryItem(1, { quantity: 3, version: 4 }),
+    inventoryItem(2, { quantity: 6, version: 4, unit: '枚' }),
+  ]);
+  await conflictSave;
+
+  expect(instance.data.items[1]).toEqual(
+    expect.objectContaining({
+      quantity: 6,
+      quantityInput: '8',
+      version: 4,
+      saving: true,
+    }),
+  );
+
+  secondSave.resolve(inventoryItem(2, { quantity: 8, version: 5, unit: '枚' }));
+  await concurrentSave;
+  expect(instance.data.items[1]).toEqual(
+    expect.objectContaining({ quantity: 8, version: 5, saving: false }),
+  );
+});
+
+test('does not let a stale conflict refresh overwrite a newer save result', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const refreshedInventory = deferred<InventoryItem[]>();
+  const app = createAppMock({
+    ingredients: [
+      ingredient(1, '番茄', '蔬菜', '个'),
+      ingredient(2, '鸡蛋', '蛋奶', '枚'),
+    ],
+    inventory: [
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ])
+    .mockImplementationOnce(() => refreshedInventory.promise);
+  app.saveInventoryItem.mockImplementation((ingredientId) =>
+    ingredientId === 1
+      ? Promise.reject(
+          new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
+        )
+      : Promise.resolve(
+          inventoryItem(2, { quantity: 9, version: 6, unit: '枚' }),
+        ),
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '9' },
+    currentTarget: { dataset: { id: 2 } },
+  });
+
+  const conflictSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+  await flushPromises();
+  await definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 2 } },
+  });
+  expect(instance.data.items[1].version).toBe(6);
+
+  refreshedInventory.resolve([
+    inventoryItem(1, { quantity: 3, version: 4 }),
+    inventoryItem(2, { quantity: 5, version: 4, unit: '枚' }),
+  ]);
+  await conflictSave;
+
+  expect(instance.data.items[1]).toEqual(
+    expect.objectContaining({
+      quantity: 9,
+      quantityInput: '9',
+      version: 6,
+      saving: false,
+      errorMessage: '',
+    }),
+  );
+});
+
 test('preserves the attempted input and maps ordinary save errors', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);
@@ -431,6 +592,110 @@ test('reloads a conflicting row but keeps its attempted input', async () => {
       errorMessage: toInventoryErrorMessage(
         'DINNER_INVENTORY_VERSION_CONFLICT',
       ),
+    }),
+  );
+});
+
+test('preserves target input and non-target state when conflict refresh fails', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const secondSave = deferred<InventoryItem>();
+  const app = createAppMock({
+    ingredients: [
+      ingredient(1, '番茄', '蔬菜', '个'),
+      ingredient(2, '鸡蛋', '蛋奶', '枚'),
+    ],
+    inventory: [
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ])
+    .mockRejectedValueOnce(new ApiError('NETWORK_ERROR', 'offline'));
+  app.saveInventoryItem.mockImplementation((ingredientId) =>
+    ingredientId === 1
+      ? Promise.reject(
+          new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
+        )
+      : secondSave.promise,
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5.5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '8' },
+    currentTarget: { dataset: { id: 2 } },
+  });
+
+  const concurrentSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 2 } },
+  });
+  await definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  expect(instance.data.items[0]).toEqual(
+    expect.objectContaining({
+      quantityInput: '5.5',
+      saving: false,
+      errorMessage: toInventoryErrorMessage('NETWORK_ERROR'),
+    }),
+  );
+  expect(instance.data.items[1]).toEqual(
+    expect.objectContaining({
+      quantityInput: '8',
+      saving: true,
+      errorMessage: '',
+      version: 3,
+    }),
+  );
+
+  secondSave.resolve(inventoryItem(2, { quantity: 8, version: 4, unit: '枚' }));
+  await concurrentSave;
+});
+
+test('shows an empty catalog and hides inventory-only stale rows', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  runtime.getApp = () =>
+    createAppMock({
+      ingredients: [],
+      inventory: [inventoryItem(99, { name: '停用食材', version: 8 })],
+    });
+
+  await definition.onShow.call(instance);
+
+  expect(instance.data.catalogEmpty).toBe(true);
+  expect(instance.data.hasInventory).toBe(true);
+  expect(instance.data.items).toEqual([]);
+  expect(instance.data.groups).toEqual([]);
+});
+
+test('uses only empty-catalog state when catalog and inventory are empty', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  runtime.getApp = () => createAppMock();
+  instance.data.searchQuery = '番茄';
+
+  await definition.onShow.call(instance);
+
+  expect(instance.data).toEqual(
+    expect.objectContaining({
+      loading: false,
+      catalogEmpty: true,
+      hasInventory: false,
+      emptySearch: false,
+      items: [],
+      groups: [],
+      loadErrorMessage: '',
+      searchQuery: '番茄',
     }),
   );
 });

@@ -14,66 +14,68 @@
   </view>
 
   <block wx:else>
-    <view class="search-field">
-      <text class="search-label">搜索</text>
-      <input
-        class="search-input"
-        value="{{searchQuery}}"
-        placeholder="食材名称或分类"
-        placeholder-class="input-placeholder"
-        confirm-type="search"
-        bindinput="onSearchInput"
-      />
-    </view>
-
-    <view wx:if="{{!hasInventory}}" class="inventory-guidance">
-      <text class="guidance-title">还没有记录库存</text>
-      <text class="guidance-copy">从下面选一种食材填写数量；留空保存表示数量未知。</text>
-    </view>
-
-    <view wx:if="{{emptySearch}}" class="status-state status-state--compact">
-      <text class="empty-title">没有找到匹配的食材</text>
-      <text class="empty-copy">换个名称或分类试试</text>
-    </view>
-
-    <view wx:elif="{{items.length === 0}}" class="status-state status-state--compact">
+    <view wx:if="{{catalogEmpty}}" class="status-state status-state--compact">
       <text class="empty-title">暂时没有可管理的食材</text>
       <text class="empty-copy">食材目录更新后会显示在这里</text>
     </view>
 
-    <view wx:else class="ingredient-groups">
-      <view wx:for="{{groups}}" wx:key="category" class="ingredient-group">
-        <text class="category-heading">{{item.category}}</text>
-        <view class="ingredient-list">
-          <view wx:for="{{item.items}}" wx:key="ingredientId" class="ingredient-row">
-            <view class="ingredient-main">
-              <text class="ingredient-name">{{item.name}}</text>
-              <view class="quantity-editor">
-                <input
-                  class="quantity-input {{item.errorMessage ? 'quantity-input--error' : ''}}"
-                  type="digit"
-                  maxlength="13"
-                  value="{{item.quantityInput}}"
-                  placeholder="数量未知"
-                  placeholder-class="input-placeholder"
-                  aria-label="{{item.name}}数量"
-                  data-id="{{item.ingredientId}}"
-                  bindinput="onQuantityInput"
-                />
-                <text class="unit-label">{{item.unit}}</text>
-                <button
-                  class="save-button"
-                  loading="{{item.saving}}"
-                  disabled="{{item.saving}}"
-                  data-id="{{item.ingredientId}}"
-                  bindtap="onSaveItem"
-                >保存</button>
+    <block wx:else>
+      <view class="search-field">
+        <text class="search-label">搜索</text>
+        <input
+          class="search-input"
+          value="{{searchQuery}}"
+          placeholder="食材名称或分类"
+          placeholder-class="input-placeholder"
+          confirm-type="search"
+          bindinput="onSearchInput"
+        />
+      </view>
+
+      <view wx:if="{{!hasInventory && !emptySearch}}" class="inventory-guidance">
+        <text class="guidance-title">还没有记录库存</text>
+        <text class="guidance-copy">从下面选一种食材填写数量；留空保存表示数量未知。</text>
+      </view>
+
+      <view wx:if="{{emptySearch}}" class="status-state status-state--compact">
+        <text class="empty-title">没有找到匹配的食材</text>
+        <text class="empty-copy">换个名称或分类试试</text>
+      </view>
+
+      <view wx:else class="ingredient-groups">
+        <view wx:for="{{groups}}" wx:key="category" class="ingredient-group">
+          <text class="category-heading">{{item.category}}</text>
+          <view class="ingredient-list">
+            <view wx:for="{{item.items}}" wx:key="ingredientId" class="ingredient-row">
+              <view class="ingredient-main">
+                <text class="ingredient-name">{{item.name}}</text>
+                <view class="quantity-editor">
+                  <input
+                    class="quantity-input {{item.errorMessage ? 'quantity-input--error' : ''}}"
+                    type="digit"
+                    maxlength="13"
+                    value="{{item.quantityInput}}"
+                    placeholder="数量未知"
+                    placeholder-class="input-placeholder"
+                    aria-label="{{item.name}}数量"
+                    data-id="{{item.ingredientId}}"
+                    bindinput="onQuantityInput"
+                  />
+                  <text class="unit-label">{{item.unit}}</text>
+                  <button
+                    class="save-button"
+                    loading="{{item.saving}}"
+                    disabled="{{item.saving}}"
+                    data-id="{{item.ingredientId}}"
+                    bindtap="onSaveItem"
+                  >保存</button>
+                </view>
               </view>
+              <text wx:if="{{item.errorMessage}}" class="row-error" role="alert">{{item.errorMessage}}</text>
             </view>
-            <text wx:if="{{item.errorMessage}}" class="row-error" role="alert">{{item.errorMessage}}</text>
           </view>
         </view>
       </view>
-    </view>
+    </block>
   </block>
 </view>

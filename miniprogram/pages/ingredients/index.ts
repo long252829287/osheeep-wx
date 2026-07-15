@@ -27,6 +27,7 @@ interface IngredientPageItem {
   stocked: boolean;
   saving: boolean;
   errorMessage: string;
+  mutationRevision: number;
 }
 
 interface IngredientGroup {
@@ -51,12 +52,15 @@ const createPageItem = (
   stocked: Boolean(inventoryItem),
   saving: false,
   errorMessage: '',
+  mutationRevision: 0,
 });
 
 const mergeIngredientRows = (
   ingredients: Ingredient[],
   inventory: InventoryItem[],
 ): IngredientPageItem[] => {
+  if (ingredients.length === 0) return [];
+
   const inventoryById = new Map(
     inventory.map((item) => [item.ingredientId, item]),
   );
@@ -77,6 +81,7 @@ const mergeIngredientRows = (
       stocked: true,
       saving: false,
       errorMessage: '',
+      mutationRevision: 0,
     }));
   return [...catalogRows, ...inventoryOnlyRows];
 };
@@ -134,6 +139,7 @@ Page({
     emptySearch: false,
     loadErrorMessage: '',
     hasInventory: false,
+    catalogEmpty: false,
   },
 
   async onShow() {
@@ -158,8 +164,11 @@ Page({
         items,
         groups,
         emptySearch:
-          Boolean(this.data.searchQuery.trim()) && groups.length === 0,
+          ingredients.length > 0 &&
+          Boolean(this.data.searchQuery.trim()) &&
+          groups.length === 0,
         hasInventory: inventory.length > 0,
+        catalogEmpty: ingredients.length === 0,
       });
     } catch (error) {
       this.setData({ loadErrorMessage: errorMessageOf(error) });
@@ -187,19 +196,31 @@ Page({
     const groups = groupVisibleRows(this.data.items, searchQuery);
     this.setData({
       groups,
-      emptySearch: Boolean(searchQuery.trim()) && groups.length === 0,
+      emptySearch:
+        !this.data.catalogEmpty &&
+        Boolean(searchQuery.trim()) &&
+        groups.length === 0,
     });
   },
 
   updateItem(ingredientId: number, update: Partial<IngredientPageItem>) {
     const items = this.data.items.map((item) =>
-      item.ingredientId === ingredientId ? { ...item, ...update } : item,
+      item.ingredientId === ingredientId
+        ? {
+            ...item,
+            ...update,
+            mutationRevision: item.mutationRevision + 1,
+          }
+        : item,
     );
     const groups = groupVisibleRows(items, this.data.searchQuery);
     this.setData({
       items,
       groups,
-      emptySearch: Boolean(this.data.searchQuery.trim()) && groups.length === 0,
+      emptySearch:
+        !this.data.catalogEmpty &&
+        Boolean(this.data.searchQuery.trim()) &&
+        groups.length === 0,
     });
   },
 
@@ -263,28 +284,56 @@ Page({
 
     try {
       const app = getApp<OsheeepApp>();
+      const refreshRevisions = new Map(
+        this.data.items.map((item) => [
+          item.ingredientId,
+          item.mutationRevision,
+        ]),
+      );
       const [ingredients, inventory] = await Promise.all([
         app.getIngredients(),
         app.getInventory(),
       ]);
       const conflictMessage = toInventoryErrorMessage(errorCode);
-      const items = mergeIngredientRows(ingredients, inventory).map((item) =>
-        item.ingredientId === ingredientId
-          ? {
-              ...item,
-              quantityInput: attemptedInput,
-              saving: false,
-              errorMessage: conflictMessage,
-            }
-          : item,
+      const currentById = new Map(
+        this.data.items.map((item) => [item.ingredientId, item]),
+      );
+      const items = mergeIngredientRows(ingredients, inventory).map(
+        (refreshedItem) => {
+          const currentItem = currentById.get(refreshedItem.ingredientId);
+          if (!currentItem) return refreshedItem;
+
+          const changedDuringRefresh =
+            currentItem.mutationRevision !==
+            refreshRevisions.get(refreshedItem.ingredientId);
+          const canonicalItem =
+            changedDuringRefresh || currentItem.version > refreshedItem.version
+              ? currentItem
+              : refreshedItem;
+          const isTarget = refreshedItem.ingredientId === ingredientId;
+          return {
+            ...canonicalItem,
+            quantityInput:
+              isTarget && !changedDuringRefresh
+                ? attemptedInput
+                : currentItem.quantityInput,
+            saving: isTarget ? false : currentItem.saving,
+            errorMessage: isTarget ? conflictMessage : currentItem.errorMessage,
+            mutationRevision: currentItem.mutationRevision,
+          };
+        },
       );
       const groups = groupVisibleRows(items, this.data.searchQuery);
       this.setData({
         items,
         groups,
         emptySearch:
-          Boolean(this.data.searchQuery.trim()) && groups.length === 0,
-        hasInventory: inventory.length > 0,
+          ingredients.length > 0 &&
+          Boolean(this.data.searchQuery.trim()) &&
+          groups.length === 0,
+        hasInventory:
+          inventory.length > 0 || items.some((item) => item.stocked),
+        catalogEmpty: ingredients.length === 0,
       });
     } catch (reloadError) {
       this.updateItem(ingredientId, {

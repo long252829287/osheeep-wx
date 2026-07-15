@@ -43,7 +43,7 @@
 - Consumes: existing `dinner_households(id)` and `dinner_recipes(id)`.
 - Produces: three mapper interfaces and entity fields matching V5; later tasks consume `selectByHouseholdAndIngredientForUpdate(Long, Long)`.
 
-- [ ] **Step 1: Write the failing persistence contract test**
+- [x] **Step 1: Write the failing persistence contract test**
 
 ```java
 @Test
@@ -61,13 +61,13 @@ void inventoryExposesOptimisticVersionAndLockingLookup() throws Exception {
 }
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerIngredientPersistenceContractTest test`
 
 Expected: FAIL at compilation because the ingredient and inventory types do not exist.
 
-- [ ] **Step 3: Add the exact V5 schema**
+- [x] **Step 3: Add the exact V5 schema**
 
 ```sql
 CREATE TABLE dinner_ingredients (
@@ -175,7 +175,7 @@ JOIN dinner_recipes r ON r.name = seed.recipe_name AND r.scope = 'SYSTEM'
 JOIN dinner_ingredients i ON i.name = seed.ingredient_name AND i.scope = 'SYSTEM';
 ```
 
-- [ ] **Step 4: Implement entities and locking mapper**
+- [x] **Step 4: Implement entities and locking mapper**
 
 ```java
 @Mapper
@@ -193,13 +193,13 @@ public interface DinnerHouseholdInventoryMapper
 
 Each entity uses existing project conventions: `@TableName`, `@TableId(type = IdType.AUTO)`, explicit `@TableField` for snake-case names, `BigDecimal` for quantity, `LocalDateTime` for timestamps, and ordinary getters/setters.
 
-- [ ] **Step 5: Run the persistence contract test**
+- [x] **Step 5: Run the persistence contract test**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerIngredientPersistenceContractTest test`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```bash
 cd ../osheeep-server
@@ -225,7 +225,7 @@ git commit -m "feat: add dinner ingredient persistence"
 - Consumes: Task 1 mappers and existing `DinnerHouseholdMemberMapper`.
 - Produces: `listIngredients(Long)`, `listInventory(Long)`, `upsertInventoryItem(Long,Long,BigDecimal,String,long)`, `removeInventoryItem(Long,Long,long)` and four HTTP routes.
 
-- [ ] **Step 1: Write failing inventory service tests**
+- [x] **Step 1: Write failing inventory service tests**
 
 ```java
 @Test
@@ -259,13 +259,13 @@ void staleInventoryVersionDoesNotMutateTheItem() {
 }
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerIngredientServiceTest,DinnerIngredientControllerTest test`
 
 Expected: FAIL because the service, DTOs, controller and error codes do not exist.
 
-- [ ] **Step 3: Define DTO contracts and validation**
+- [x] **Step 3: Define DTO contracts and validation**
 
 ```java
 public record IngredientResponse(
@@ -291,7 +291,7 @@ DINNER_INVENTORY_VERSION_CONFLICT(
 DINNER_INVENTORY_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "Dinner inventory item was not found"),
 ```
 
-- [ ] **Step 4: Implement service transaction rules**
+- [x] **Step 4: Implement service transaction rules**
 
 ```java
 @Transactional
@@ -329,7 +329,7 @@ public InventoryItemResponse upsertInventoryItem(
 
 `removeInventoryItem` locks the item, compares the exact version, deletes only the current household row, and treats a repeated delete as `DINNER_INVENTORY_ITEM_NOT_FOUND`.
 
-- [ ] **Step 5: Expose exact HTTP routes**
+- [x] **Step 5: Expose exact HTTP routes**
 
 ```text
 GET    /api/dinner/ingredients
@@ -340,13 +340,13 @@ DELETE /api/dinner/inventory/{ingredientId}?version={version}
 
 Controller methods obtain `CurrentUser` exactly as existing dinner controllers do; no request accepts `householdId` or `userId`.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerIngredientServiceTest,DinnerIngredientControllerTest test`
 
 Expected: PASS for list, create, update, delete, invalid ingredient, missing membership and stale version cases.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 ```bash
 git add src/main/java/com/osheeep/server/dinner/ingredient src/main/java/com/osheeep/server/common/error/ErrorCode.java src/test/java/com/osheeep/server/dinner/ingredient
@@ -367,7 +367,7 @@ git commit -m "feat: manage household ingredients"
 - Consumes: immutable recipe requirement and inventory value records.
 - Produces: `RecipeMatchCalculator.calculate(List<Requirement>, Map<Long,Stock>)` with deterministic status and sorting fields.
 
-- [ ] **Step 1: Write the failing match matrix tests**
+- [x] **Step 1: Write the failing match matrix tests**
 
 ```java
 @Test
@@ -400,13 +400,13 @@ void insufficientKnownQuantityIsMissing() {
 }
 ```
 
-- [ ] **Step 2: Run the calculator test and verify RED**
+- [x] **Step 2: Run the calculator test and verify RED**
 
 Run: `cd ../osheeep-server && mvn -Dtest=RecipeMatchCalculatorTest test`
 
 Expected: FAIL at compilation because the calculator and records do not exist.
 
-- [ ] **Step 3: Implement the exact calculator contract**
+- [x] **Step 3: Implement the exact calculator contract**
 
 ```java
 public final class RecipeMatchCalculator {
@@ -451,13 +451,13 @@ public final class RecipeMatchCalculator {
 }
 ```
 
-- [ ] **Step 4: Run the full calculator matrix**
+- [x] **Step 4: Run the full calculator matrix**
 
 Run: `cd ../osheeep-server && mvn -Dtest=RecipeMatchCalculatorTest test`
 
 Expected: PASS for absent, insufficient, unknown, optional-only, unit mismatch and complete inventory cases.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```bash
 git add src/main/java/com/osheeep/server/dinner/recipe/RecipeMatchCalculator.java src/main/java/com/osheeep/server/dinner/recipe/dto/RecipeIngredientResponse.java src/main/java/com/osheeep/server/dinner/recipe/dto/RecipeMatchResponse.java src/test/java/com/osheeep/server/dinner/recipe/RecipeMatchCalculatorTest.java
@@ -479,7 +479,7 @@ git commit -m "feat: calculate recipe ingredient matches"
 - Consumes: Task 1 recipe ingredient mapper, Task 2 inventory mapper and Task 3 calculator.
 - Produces: household-aware `DinnerRecipeService.discover(Long, Set<Long>, Set<Long>, boolean)` and expanded recipe response.
 
-- [ ] **Step 1: Write failing discovery ordering tests**
+- [x] **Step 1: Write failing discovery ordering tests**
 
 ```java
 @Test
@@ -501,13 +501,13 @@ void discoverOrdersAvailableThenUnknownThenMissingAndFiltersWhenRequested() {
 }
 ```
 
-- [ ] **Step 2: Run discovery tests and verify RED**
+- [x] **Step 2: Run discovery tests and verify RED**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerRecipeServiceTest,DinnerRecipeControllerTest test`
 
 Expected: FAIL because the service remains system-only and the response has no ingredients or match.
 
-- [ ] **Step 3: Expand the response without removing old fields**
+- [x] **Step 3: Expand the response without removing old fields**
 
 ```java
 public record RecipeResponse(
@@ -523,7 +523,7 @@ public record RecipeResponse(
 
 `RecipeIngredientResponse` contains `ingredientId`, `name`, `quantity`, `unit`, `required`, and `sortOrder`.
 
-- [ ] **Step 4: Implement household discovery**
+- [x] **Step 4: Implement household discovery**
 
 `discover` performs one query each for active system recipes, their ingredient rows and the current household inventory. It groups rows in memory, applies temporary include IDs as quantity-unknown stock, removes temporary exclude IDs, invokes `RecipeMatchCalculator`, filters when `onlyCookable` is true, and sorts by status rank, match percent descending, estimated minutes ascending, then recipe ID.
 
@@ -537,7 +537,7 @@ private static int statusRank(String status) {
 }
 ```
 
-- [ ] **Step 5: Expose query parameters**
+- [x] **Step 5: Expose query parameters**
 
 ```java
 @GetMapping
@@ -551,19 +551,19 @@ public ApiResponse<List<RecipeResponse>> list(
 }
 ```
 
-- [ ] **Step 6: Run focused API tests**
+- [x] **Step 6: Run focused API tests**
 
 Run: `cd ../osheeep-server && mvn -Dtest=DinnerRecipeServiceTest,DinnerRecipeControllerTest test`
 
 Expected: PASS for default discovery, temporary include/exclude, only-cookable filtering and unauthenticated access.
 
-- [ ] **Step 7: Run all backend tests**
+- [x] **Step 7: Run all backend tests**
 
 Run: `cd ../osheeep-server && mvn test`
 
 Expected: all existing and new tests pass with 0 failures and 0 errors.
 
-- [ ] **Step 8: Commit Task 4**
+- [x] **Step 8: Commit Task 4**
 
 ```bash
 git add src/main/java/com/osheeep/server/dinner/recipe src/test/java/com/osheeep/server/dinner/recipe
@@ -589,7 +589,7 @@ git commit -m "feat: discover recipes from household inventory"
 - Consumes: Task 2 and Task 4 HTTP contracts.
 - Produces: frontend `InventoryItem`, expanded `RecipeSummary`, `RecipeDiscoveryQuery`, ingredient service and `toRecipeDiscoveryView`.
 
-- [ ] **Step 1: Write failing service mapping tests**
+- [x] **Step 1: Write failing service mapping tests**
 
 ```ts
 test('maps ingredient inventory reads and item writes', async () => {
@@ -615,7 +615,7 @@ test('maps ingredient inventory reads and item writes', async () => {
 });
 ```
 
-- [ ] **Step 2: Write failing pure view-model tests**
+- [x] **Step 2: Write failing pure view-model tests**
 
 ```ts
 test('builds a focused first screen with one featured and two rows', () => {
@@ -628,13 +628,13 @@ test('builds a focused first screen with one featured and two rows', () => {
 });
 ```
 
-- [ ] **Step 3: Run frontend tests and verify RED**
+- [x] **Step 3: Run frontend tests and verify RED**
 
 Run: `npm test -- --runInBand tests/ingredient-service.test.ts tests/recipe-discovery.test.ts tests/menu-service.test.ts`
 
 Expected: FAIL because ingredient types/service and discovery view model do not exist.
 
-- [ ] **Step 4: Define exact frontend types**
+- [x] **Step 4: Define exact frontend types**
 
 ```ts
 export interface InventoryItem {
@@ -660,7 +660,7 @@ export interface RecipeMatch {
 
 Expand `RecipeSummary` with `ingredients` and `match`; preserve existing fields unchanged.
 
-- [ ] **Step 5: Implement query encoding and view model**
+- [x] **Step 5: Implement query encoding and view model**
 
 ```ts
 export interface RecipeDiscoveryQuery {
@@ -682,13 +682,13 @@ const queryString = (query: RecipeDiscoveryQuery) => {
 
 `toRecipeDiscoveryView` selects the first recipe as `featured`, the next two as `rows`, formats `食材齐全` / `数量待确认` / `还缺 N 样`, and exposes the first three inventory items plus `hasMoreIngredients`.
 
-- [ ] **Step 6: Run focused frontend tests**
+- [x] **Step 6: Run focused frontend tests**
 
 Run: `npm test -- --runInBand tests/ingredient-service.test.ts tests/recipe-discovery.test.ts tests/menu-service.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 5**
+- [x] **Step 7: Commit Task 5**
 
 ```bash
 git add miniprogram/types miniprogram/services miniprogram/app.ts miniprogram/utils/recipe-discovery.ts tests/ingredient-service.test.ts tests/recipe-discovery.test.ts tests/menu-service.test.ts
@@ -715,7 +715,7 @@ git commit -m "feat: add recipe discovery client contracts"
 - Consumes: Task 5 app-level ingredient methods and `InventoryItem`.
 - Produces: `/pages/ingredients/index`, quantity validation and conflict recovery behavior.
 
-- [ ] **Step 1: Write failing route and page contract tests**
+- [x] **Step 1: Write failing route and page contract tests**
 
 ```ts
 test('declares the household ingredient inventory page', () => {
@@ -739,13 +739,13 @@ test.each([
 });
 ```
 
-- [ ] **Step 2: Run page tests and verify RED**
+- [x] **Step 2: Run page tests and verify RED**
 
 Run: `npm test -- --runInBand tests/project-structure.test.ts tests/inventory-input.test.ts tests/ingredients-page.test.ts`
 
 Expected: FAIL because the route, page and validation utility do not exist.
 
-- [ ] **Step 3: Implement page state and optimistic saves**
+- [x] **Step 3: Implement page state and optimistic saves**
 
 ```ts
 interface IngredientPageItem extends InventoryItem {
@@ -779,11 +779,11 @@ async onSaveItem(event: WechatMiniprogram.TouchEvent) {
 
 The page groups rows by category, supports search, displays blank quantity as “数量未知”, saves one row at a time, preserves input on failure, and reloads the conflicting row when the API returns `DINNER_INVENTORY_VERSION_CONFLICT`.
 
-- [ ] **Step 4: Implement WXML/WXSS against the approved visual language**
+- [x] **Step 4: Implement WXML/WXSS against the approved visual language**
 
 Use a warm base surface, section headings and simple row dividers. Each row contains ingredient name, quantity input, unit, and a single save action. Do not place every row in its own elevated card. Include loading, error, empty search and no-inventory states.
 
-- [ ] **Step 5: Run page, type and lint checks**
+- [x] **Step 5: Run page, type and lint checks**
 
 Run: `npm test -- --runInBand tests/project-structure.test.ts tests/inventory-input.test.ts tests/ingredients-page.test.ts`
 
@@ -797,7 +797,7 @@ Run: `npm run lint`
 
 Expected: exit 0.
 
-- [ ] **Step 6: Commit Task 6**
+- [x] **Step 6: Commit Task 6**
 
 ```bash
 git add miniprogram/app.json miniprogram/pages/ingredients miniprogram/utils/inventory-input.ts miniprogram/utils/inventory-errors.ts tests/project-structure.test.ts tests/inventory-input.test.ts tests/ingredients-page.test.ts
@@ -821,7 +821,7 @@ git commit -m "feat: manage household ingredient inventory"
 - Consumes: Task 5 discovery view model, app recipe service, existing menu service and Task 6 inventory route.
 - Produces: approved find-dish layout, temporary filters and add-to-tonight behavior.
 
-- [ ] **Step 1: Write failing rendered-structure contracts**
+- [x] **Step 1: Write failing rendered-structure contracts**
 
 ```ts
 test('recipe page exposes the approved discovery hierarchy', () => {
@@ -839,13 +839,13 @@ test('recipe page exposes the approved discovery hierarchy', () => {
 });
 ```
 
-- [ ] **Step 2: Run the page test and verify RED**
+- [x] **Step 2: Run the page test and verify RED**
 
 Run: `npm test -- --runInBand tests/recipe-discovery-page.test.ts tests/project-structure.test.ts`
 
 Expected: FAIL because the current page is a two-column selection grid.
 
-- [ ] **Step 3: Implement focused discovery state**
+- [x] **Step 3: Implement focused discovery state**
 
 ```ts
 data: {
@@ -868,7 +868,7 @@ data: {
 
 `onShow` loads inventory, discovery recipes and today's menu concurrently. `onToggleOnlyCookable` reloads recipes with the exact query. `onOpenIngredients` navigates to `/pages/ingredients/index`. “家庭菜谱” displays a clear unavailable message in this slice rather than navigating to a nonexistent page.
 
-- [ ] **Step 4: Implement add-to-tonight with existing version semantics**
+- [x] **Step 4: Implement add-to-tonight with existing version semantics**
 
 ```ts
 async onAddToTonight(event: WechatMiniprogram.TouchEvent) {
@@ -893,11 +893,11 @@ async onAddToTonight(event: WechatMiniprogram.TouchEvent) {
 
 Do not replace the user's full selection with only the clicked recipe. On `DINNER_MENU_VERSION_CONFLICT`, reload today's menu and preserve the recipe the user attempted to add so they can retry explicitly.
 
-- [ ] **Step 5: Implement the selected visual direction**
+- [x] **Step 5: Implement the selected visual direction**
 
 Use the exact hierarchy from `docs/design/formal-release/recipe-discovery-final-direction.png`: compact pantry surface with at most three ingredients, one only-cookable toggle, one featured recipe, two lightweight rows, quiet household/inventory entries, and existing bottom navigation. Preserve `#FFFAF3`, `#CA5325`, `#7B823B`, `#426687` and `#282722`. Ensure fixed navigation and safe-area padding do not cover content at 375, 390 or 430px.
 
-- [ ] **Step 6: Run focused tests and static checks**
+- [x] **Step 6: Run focused tests and static checks**
 
 Run: `npm test -- --runInBand tests/recipe-discovery-page.test.ts tests/recipe-discovery.test.ts tests/menu-service.test.ts tests/project-structure.test.ts`
 
@@ -911,7 +911,7 @@ Run: `npm run lint`
 
 Expected: exit 0.
 
-- [ ] **Step 7: Commit Task 7**
+- [x] **Step 7: Commit Task 7**
 
 ```bash
 git add miniprogram/pages/recipes tests/recipe-discovery-page.test.ts tests/project-structure.test.ts tests/menu-service.test.ts
@@ -931,19 +931,19 @@ git commit -m "feat: discover recipes from household ingredients"
 - Consumes: Tasks 1–7 completed implementation.
 - Produces: verified repositories and an accurate continuation point for the custom recipe plan.
 
-- [ ] **Step 1: Run the complete backend suite**
+- [x] **Step 1: Run the complete backend suite**
 
 Run: `cd ../osheeep-server && mvn test`
 
 Expected: all backend tests pass with 0 failures and 0 errors.
 
-- [ ] **Step 2: Run the complete frontend suite**
+- [x] **Step 2: Run the complete frontend suite**
 
 Run: `npm test -- --runInBand`
 
 Expected: all frontend suites and tests pass.
 
-- [ ] **Step 3: Run frontend static checks**
+- [x] **Step 3: Run frontend static checks**
 
 Run: `npm run typecheck`
 
@@ -961,11 +961,11 @@ Run: `git diff --check`
 
 Expected: no output and exit 0 in both repositories.
 
-- [ ] **Step 4: Update contracts and handoff with exact delivered scope**
+- [x] **Step 4: Update contracts and handoff with exact delivered scope**
 
 Document the ingredient, inventory and discovery endpoints in `osheeep-server/docs/api-contract.md`. Update `docs/HANDOFF.md` with V5, new page paths, test counts from the fresh runs, the fact that current recipe photos remain development placeholders, and the next separate plan: custom recipe drafts, methods, publishing and content safety.
 
-- [ ] **Step 5: Mark this plan complete and commit documentation**
+- [x] **Step 5: Mark this plan complete and commit documentation**
 
 ```bash
 git add docs/superpowers/plans/2026-07-15-recipe-inventory-discovery.md docs/HANDOFF.md
@@ -978,8 +978,14 @@ git add docs/api-contract.md
 git commit -m "docs: describe ingredient inventory APIs"
 ```
 
-- [ ] **Step 6: Verify repository state**
+- [x] **Step 6: Verify repository state**
 
 Run in both repositories: `git status -sb`
 
 Expected: clean `main` worktrees; local branches may be ahead of `origin/main` until the user requests push.
+
+## 阶段完成说明（2026-07-15）
+
+Tasks 1–8 的实现、自动化测试、静态检查、跨仓库回归和阶段文档均已完成。两个仓库继续遵循已批准的 direct-main 约定；本地 `main` 可以在用户要求 push 前领先 `origin/main`。
+
+剩余验证不属于已完成勾选项：Task 6 食材库存页和 Task 7 找菜页仍需在已授权的微信开发者工具会话中补做 375、390、430px 截图/像素级视觉 QA。本轮 DevTools CLI service port 被关闭，无法安全采集模拟器截图，因此不声明新页面视觉 QA 已通过。

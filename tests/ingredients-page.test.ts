@@ -462,6 +462,127 @@ test('preserves another concurrent save while a conflict refresh is applied', as
   );
 });
 
+test('adopts newer canonical fields while preserving a target edit made during conflict refresh', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const refreshedInventory = deferred<InventoryItem[]>();
+  const app = createAppMock({
+    ingredients: [ingredient(1, '番茄', '蔬菜', '个')],
+    inventory: [inventoryItem(1, { quantity: 2, version: 3, unit: '个' })],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([
+      inventoryItem(1, { quantity: 2, version: 3, unit: '个' }),
+    ])
+    .mockImplementationOnce(() => refreshedInventory.promise);
+  app.saveInventoryItem.mockRejectedValue(
+    new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  const conflictSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+  await flushPromises();
+  expect(app.getInventory).toHaveBeenCalledTimes(2);
+
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '7' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+  refreshedInventory.resolve([
+    inventoryItem(1, { quantity: 4, version: 4, unit: '斤' }),
+  ]);
+  await conflictSave;
+
+  expect(instance.data.items[0]).toEqual(
+    expect.objectContaining({
+      quantity: 4,
+      quantityInput: '7',
+      unit: '斤',
+      version: 4,
+      saving: false,
+      errorMessage: toInventoryErrorMessage(
+        'DINNER_INVENTORY_VERSION_CONFLICT',
+      ),
+    }),
+  );
+});
+
+test('adopts newer canonical fields while preserving a non-target save started during conflict refresh', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const refreshedInventory = deferred<InventoryItem[]>();
+  const secondSave = deferred<InventoryItem>();
+  const app = createAppMock({
+    ingredients: [
+      ingredient(1, '番茄', '蔬菜', '个'),
+      ingredient(2, '鸡蛋', '蛋奶', '枚'),
+    ],
+    inventory: [
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([
+      inventoryItem(1, { quantity: 2, version: 3 }),
+      inventoryItem(2, { quantity: 4, version: 3, unit: '枚' }),
+    ])
+    .mockImplementationOnce(() => refreshedInventory.promise);
+  app.saveInventoryItem.mockImplementation((ingredientId) =>
+    ingredientId === 1
+      ? Promise.reject(
+          new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
+        )
+      : secondSave.promise,
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  const conflictSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+  await flushPromises();
+  expect(app.getInventory).toHaveBeenCalledTimes(2);
+
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '8' },
+    currentTarget: { dataset: { id: 2 } },
+  });
+  const concurrentSave = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 2 } },
+  });
+  refreshedInventory.resolve([
+    inventoryItem(1, { quantity: 3, version: 4 }),
+    inventoryItem(2, { quantity: 6, version: 5, unit: '盒' }),
+  ]);
+  await conflictSave;
+
+  expect(instance.data.items[1]).toEqual(
+    expect.objectContaining({
+      quantity: 6,
+      quantityInput: '8',
+      unit: '盒',
+      version: 5,
+      saving: true,
+      errorMessage: '',
+    }),
+  );
+
+  secondSave.resolve(inventoryItem(2, { quantity: 8, version: 6, unit: '盒' }));
+  await concurrentSave;
+});
+
 test('does not let a stale conflict refresh overwrite a newer save result', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);

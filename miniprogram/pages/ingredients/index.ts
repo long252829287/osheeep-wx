@@ -27,7 +27,6 @@ interface IngredientPageItem {
   stocked: boolean;
   saving: boolean;
   errorMessage: string;
-  mutationRevision: number;
 }
 
 interface IngredientGroup {
@@ -52,7 +51,6 @@ const createPageItem = (
   stocked: Boolean(inventoryItem),
   saving: false,
   errorMessage: '',
-  mutationRevision: 0,
 });
 
 const mergeIngredientRows = (
@@ -81,7 +79,6 @@ const mergeIngredientRows = (
       stocked: true,
       saving: false,
       errorMessage: '',
-      mutationRevision: 0,
     }));
   return [...catalogRows, ...inventoryOnlyRows];
 };
@@ -209,7 +206,6 @@ Page({
         ? {
             ...item,
             ...update,
-            mutationRevision: item.mutationRevision + 1,
           }
         : item,
     );
@@ -284,12 +280,6 @@ Page({
 
     try {
       const app = getApp<OsheeepApp>();
-      const refreshRevisions = new Map(
-        this.data.items.map((item) => [
-          item.ingredientId,
-          item.mutationRevision,
-        ]),
-      );
       const [ingredients, inventory] = await Promise.all([
         app.getIngredients(),
         app.getInventory(),
@@ -303,23 +293,16 @@ Page({
           const currentItem = currentById.get(refreshedItem.ingredientId);
           if (!currentItem) return refreshedItem;
 
-          const changedDuringRefresh =
-            currentItem.mutationRevision !==
-            refreshRevisions.get(refreshedItem.ingredientId);
           const canonicalItem =
-            changedDuringRefresh || currentItem.version > refreshedItem.version
-              ? currentItem
-              : refreshedItem;
+            refreshedItem.version > currentItem.version
+              ? refreshedItem
+              : currentItem;
           const isTarget = refreshedItem.ingredientId === ingredientId;
           return {
             ...canonicalItem,
-            quantityInput:
-              isTarget && !changedDuringRefresh
-                ? attemptedInput
-                : currentItem.quantityInput,
+            quantityInput: currentItem.quantityInput,
             saving: isTarget ? false : currentItem.saving,
             errorMessage: isTarget ? conflictMessage : currentItem.errorMessage,
-            mutationRevision: currentItem.mutationRevision,
           };
         },
       );

@@ -42,6 +42,8 @@ interface RecipePageData {
   onlyCookable: boolean;
   includeIngredientIds: number[];
   excludeIngredientIds: number[];
+  menuId: number;
+  menuDate: string;
   menuVersion: number;
   mySelectedRecipeIds: number[];
   savingRecipeId: number;
@@ -66,6 +68,7 @@ interface RecipePageInstance {
   onOpenIngredients(): void;
   reloadRecipes(): Promise<void>;
   recoverMenuConflict(recipeId: number): Promise<void>;
+  applyMenu(menu: TodayMenu): boolean;
   currentQuery(): RecipeDiscoveryQuery;
 }
 
@@ -185,9 +188,13 @@ const inventoryItem = (ingredientId: number): InventoryItem => ({
 const menu = (
   version: number,
   selectedRecipeIds: number[] = [],
+  identity: { id: number; menuDate: string } = {
+    id: 1,
+    menuDate: '2026-07-15',
+  },
 ): TodayMenu => ({
-  id: 1,
-  menuDate: '2026-07-15',
+  id: identity.id,
+  menuDate: identity.menuDate,
   status: 'DRAFT',
   version,
   mySelectionCount: selectedRecipeIds.length,
@@ -416,6 +423,33 @@ test('ignores stale onShow inventory, recipe, and menu responses', async () => {
   expect(instance.data.mySelectedRecipeIds).toEqual([20]);
 });
 
+test.each(['old-first', 'new-first'] as const)(
+  'resets to version zero at the 04:00 business-day rollover when %s responses arrive',
+  async (resolutionOrder) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const oldMenu = menu(12, [2], { id: 31, menuDate: '2026-07-15' });
+    const newMenu = menu(0, [], { id: 32, menuDate: '2026-07-16' });
+
+    if (resolutionOrder === 'old-first') {
+      definition.applyMenu.call(instance, oldMenu);
+      definition.applyMenu.call(instance, newMenu);
+    } else {
+      definition.applyMenu.call(instance, newMenu);
+      definition.applyMenu.call(instance, oldMenu);
+    }
+
+    expect(instance.data).toEqual(
+      expect.objectContaining({
+        menuId: 32,
+        menuDate: '2026-07-16',
+        menuVersion: 0,
+        mySelectedRecipeIds: [],
+      }),
+    );
+  },
+);
+
 test('keeps a partial load error visible with a retry after recipes succeed', async () => {
   const definition = await loadRecipePage();
   const instance = createInstance(definition);
@@ -564,6 +598,87 @@ test('reloads after conflict, preserves the pending recipe, and requires retry',
 
   expect(app.saveSelections).toHaveBeenLastCalledWith([2, 4, 8], 7);
   expect(instance.data.menuVersion).toBe(8);
+  expect(instance.data.pendingRecipeId).toBe(0);
+});
+
+test.each(['save-first', 'rollover-first'] as const)(
+  'does not let an old-day save overwrite the 04:00 rollover when %s',
+  async (resolutionOrder) => {
+    const definition = await loadRecipePage();
+    const instance = createInstance(definition);
+    const saveRequest = deferred<TodayMenu>();
+    const rolloverRequest = deferred<TodayMenu>();
+    const app = createAppMock();
+    const oldIdentity = { id: 31, menuDate: '2026-07-15' };
+    const newIdentity = { id: 32, menuDate: '2026-07-16' };
+    app.getRecipes.mockResolvedValue([recipe(4)]);
+    app.getTodayMenu
+      .mockResolvedValueOnce(menu(8, [2], oldIdentity))
+      .mockReturnValueOnce(rolloverRequest.promise);
+    app.saveSelections.mockReturnValue(saveRequest.promise);
+    runtime.getApp = () => app;
+    await definition.onShow.call(instance);
+
+    const saving = definition.onAddToTonight.call(instance, eventFor(4));
+    const rollingOver = definition.onShow.call(instance);
+    if (resolutionOrder === 'save-first') {
+      saveRequest.resolve(menu(9, [2, 4], oldIdentity));
+      await saving;
+      rolloverRequest.resolve(menu(0, [], newIdentity));
+      await rollingOver;
+    } else {
+      rolloverRequest.resolve(menu(0, [], newIdentity));
+      await rollingOver;
+      saveRequest.resolve(menu(9, [2, 4], oldIdentity));
+      await saving;
+    }
+
+    expect(instance.data).toEqual(
+      expect.objectContaining({
+        menuId: 32,
+        menuDate: '2026-07-16',
+        menuVersion: 0,
+        mySelectedRecipeIds: [],
+        savingRecipeId: 0,
+      }),
+    );
+  },
+);
+
+test('recovers a save conflict onto the new business day and explicitly retries version zero', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  const oldIdentity = { id: 31, menuDate: '2026-07-15' };
+  const newIdentity = { id: 32, menuDate: '2026-07-16' };
+  app.getRecipes.mockResolvedValue([recipe(4)]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(8, [2], oldIdentity))
+    .mockResolvedValueOnce(menu(0, [], newIdentity));
+  app.saveSelections
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已跨日更新'),
+    )
+    .mockResolvedValueOnce(menu(1, [4], newIdentity));
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+
+  expect(instance.data).toEqual(
+    expect.objectContaining({
+      menuId: 32,
+      menuDate: '2026-07-16',
+      menuVersion: 0,
+      mySelectedRecipeIds: [],
+      pendingRecipeId: 4,
+    }),
+  );
+
+  await definition.onAddToTonight.call(instance, eventFor(4));
+
+  expect(app.saveSelections).toHaveBeenLastCalledWith([4], 0);
+  expect(instance.data.menuVersion).toBe(1);
   expect(instance.data.pendingRecipeId).toBe(0);
 });
 

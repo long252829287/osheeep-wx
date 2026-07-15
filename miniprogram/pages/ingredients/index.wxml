@@ -28,6 +28,7 @@
           placeholder="食材名称或分类"
           placeholder-class="input-placeholder"
           confirm-type="search"
+          aria-label="搜索食材库存"
           bindinput="onSearchInput"
         />
       </view>
@@ -58,6 +59,7 @@
                     placeholder="数量未知"
                     placeholder-class="input-placeholder"
                     aria-label="{{item.name}}数量"
+                    disabled="{{item.saving}}"
                     data-id="{{item.ingredientId}}"
                     bindinput="onQuantityInput"
                   />
@@ -66,9 +68,10 @@
                     class="save-button"
                     loading="{{item.saving}}"
                     disabled="{{item.saving}}"
+                    aria-label="{{item.saving ? item.name + '库存保存中' : item.name + '保存库存'}}"
                     data-id="{{item.ingredientId}}"
                     bindtap="onSaveItem"
-                  >保存</button>
+                  >{{item.saving ? '保存中' : '保存'}}</button>
                 </view>
               </view>
               <text wx:if="{{item.errorMessage}}" class="row-error" role="alert">{{item.errorMessage}}</text>

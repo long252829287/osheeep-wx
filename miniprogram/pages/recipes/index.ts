@@ -43,6 +43,8 @@ interface DiscoveryData {
   onlyCookable: boolean;
   includeIngredientIds: number[];
   excludeIngredientIds: number[];
+  menuId: number;
+  menuDate: string;
   menuVersion: number;
   mySelectedRecipeIds: number[];
   savingRecipeId: number;
@@ -162,6 +164,8 @@ Page({
     onlyCookable: false,
     includeIngredientIds: [] as number[],
     excludeIngredientIds: [] as number[],
+    menuId: 0,
+    menuDate: '',
     menuVersion: 0,
     mySelectedRecipeIds: [] as number[],
     savingRecipeId: 0,
@@ -294,10 +298,21 @@ Page({
     });
   },
 
-  applyMenu(menu: TodayMenu) {
-    if (menu.version < this.data.menuVersion) return;
+  applyMenu(menu: TodayMenu): boolean {
+    const sameIdentity =
+      menu.id === this.data.menuId && menu.menuDate === this.data.menuDate;
+    if (sameIdentity && menu.version < this.data.menuVersion) return false;
+    if (
+      !sameIdentity &&
+      this.data.menuDate &&
+      menu.menuDate < this.data.menuDate
+    ) {
+      return false;
+    }
     const mySelectedRecipeIds = sortedUniqueIds(menu.selectedRecipeIds);
     this.setData({
+      menuId: menu.id,
+      menuDate: menu.menuDate,
       menuVersion: menu.version,
       mySelectedRecipeIds,
       featured: this.data.featured
@@ -305,6 +320,7 @@ Page({
         : null,
       rows: this.data.rows.map((row) => decorateCard(row, mySelectedRecipeIds)),
     });
+    return true;
   },
 
   async reloadRecipes() {
@@ -421,7 +437,8 @@ Page({
         this.data.menuVersion,
       );
       if (operationToken !== menuOperationToken) return;
-      this.applyMenu({ ...saved, selectedRecipeIds: nextIds });
+      const applied = this.applyMenu({ ...saved, selectedRecipeIds: nextIds });
+      if (!applied) return;
       this.setData({ pendingRecipeId: 0 });
       wx.showToast({ title: '已加入今晚菜单', icon: 'success' });
     } catch (error) {

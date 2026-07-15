@@ -44,7 +44,7 @@ const inventory: InventoryItem[] = Array.from({ length: 12 }, (_, index) => ({
   category: '家常',
   quantity: index === 0 ? null : index + 1,
   unit: '份',
-  version: 0,
+  version: 1,
   updatedBy: 7,
   updatedAt: '2026-07-15T08:00:00Z',
 }));

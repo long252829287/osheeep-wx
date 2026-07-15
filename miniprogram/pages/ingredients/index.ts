@@ -182,6 +182,10 @@ Page({
 
   onQuantityInput(event: WechatMiniprogram.Input) {
     const ingredientId = Number(event.currentTarget.dataset.id);
+    const item = this.data.items.find(
+      (candidate) => candidate.ingredientId === ingredientId,
+    );
+    if (!item || item.saving) return;
     this.updateItem(ingredientId, {
       quantityInput: event.detail.value,
       errorMessage: '',
@@ -293,14 +297,15 @@ Page({
           const currentItem = currentById.get(refreshedItem.ingredientId);
           if (!currentItem) return refreshedItem;
 
-          const canonicalItem =
-            refreshedItem.version > currentItem.version ||
-            (refreshedItem.version === currentItem.version &&
-              refreshedItem.stocked &&
-              !currentItem.stocked)
+          const isTarget = refreshedItem.ingredientId === ingredientId;
+          const canonicalItem = isTarget
+            ? refreshedItem
+            : refreshedItem.version > currentItem.version ||
+                (refreshedItem.version === currentItem.version &&
+                  refreshedItem.stocked &&
+                  !currentItem.stocked)
               ? refreshedItem
               : currentItem;
-          const isTarget = refreshedItem.ingredientId === ingredientId;
           return {
             ...canonicalItem,
             quantityInput: currentItem.quantityInput,

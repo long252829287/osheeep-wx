@@ -218,6 +218,10 @@ test('renders a quiet grouped utility list with every required state', () => {
   expect(wxml).toContain('bindinput="onQuantityInput"');
   expect(wxml).toContain('bindtap="onSaveItem"');
   expect(wxml).toContain('bindtap="onRetry"');
+  expect(wxml).toContain('aria-label="搜索食材库存"');
+  expect(wxml).toContain('disabled="{{item.saving}}"');
+  expect(wxml).toContain("item.name + '保存库存'");
+  expect(wxml).toContain("item.name + '库存保存中'");
   expect(wxml).toContain('数量未知');
   expect(wxml).toContain('还没有记录库存');
   expect(wxml).toContain('没有找到匹配的食材');
@@ -395,6 +399,35 @@ test('prevents a duplicate concurrent save for the same row', async () => {
   await Promise.all([first, second]);
 });
 
+test('ignores programmatic quantity input while the row is saving', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const saveRequest = deferred<InventoryItem>();
+  const app = createAppMock({
+    ingredients: [ingredient(1, '番茄', '蔬菜', '个')],
+    inventory: [inventoryItem(1, { quantity: 2, version: 3 })],
+  });
+  app.saveInventoryItem.mockReturnValue(saveRequest.promise);
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  const saving = definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '9' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  expect(instance.data.items[0].quantityInput).toBe('5');
+  saveRequest.resolve(inventoryItem(1, { quantity: 5, version: 4 }));
+  await saving;
+});
+
 test('preserves another concurrent save while a conflict refresh is applied', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);
@@ -463,7 +496,7 @@ test('preserves another concurrent save while a conflict refresh is applied', as
   );
 });
 
-test('adopts newer canonical fields while preserving a target edit made during conflict refresh', async () => {
+test('ignores a target input event while conflict recovery is saving', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);
   const refreshedInventory = deferred<InventoryItem[]>();
@@ -504,7 +537,7 @@ test('adopts newer canonical fields while preserving a target edit made during c
   expect(instance.data.items[0]).toEqual(
     expect.objectContaining({
       quantity: 4,
-      quantityInput: '7',
+      quantityInput: '5',
       unit: '斤',
       version: 4,
       saving: false,
@@ -584,7 +617,7 @@ test('adopts newer canonical fields while preserving a non-target save started d
   await concurrentSave;
 });
 
-test('adopts a refreshed version-zero stocked row over a non-target catalog placeholder', async () => {
+test('adopts a refreshed newly-created stocked row over a non-target catalog placeholder', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);
   const refreshedInventory = deferred<InventoryItem[]>();
@@ -628,7 +661,7 @@ test('adopts a refreshed version-zero stocked row over a non-target catalog plac
   });
   refreshedInventory.resolve([
     inventoryItem(1, { quantity: 3, version: 4 }),
-    inventoryItem(2, { quantity: 6, version: 0, unit: '盒' }),
+    inventoryItem(2, { quantity: 6, version: 1, unit: '盒' }),
   ]);
   await conflictSave;
 
@@ -637,18 +670,18 @@ test('adopts a refreshed version-zero stocked row over a non-target catalog plac
       quantity: 6,
       quantityInput: '8',
       unit: '盒',
-      version: 0,
+      version: 1,
       stocked: true,
       saving: true,
       errorMessage: '',
     }),
   );
 
-  secondSave.resolve(inventoryItem(2, { quantity: 8, version: 1, unit: '盒' }));
+  secondSave.resolve(inventoryItem(2, { quantity: 8, version: 2, unit: '盒' }));
   await concurrentSave;
 });
 
-test('keeps a completed local version-zero creation over a refreshed catalog placeholder', async () => {
+test('keeps a completed local version-one creation over a refreshed catalog placeholder', async () => {
   const definition = await loadIngredientsPage();
   const instance = createInstance(definition);
   const refreshedInventory = deferred<InventoryItem[]>();
@@ -668,7 +701,7 @@ test('keeps a completed local version-zero creation over a refreshed catalog pla
           new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'stale'),
         )
       : Promise.resolve(
-          inventoryItem(2, { quantity: 8, version: 0, unit: '盒' }),
+          inventoryItem(2, { quantity: 8, version: 1, unit: '盒' }),
         ),
   );
   runtime.getApp = () => app;
@@ -699,7 +732,7 @@ test('keeps a completed local version-zero creation over a refreshed catalog pla
       quantity: 8,
       quantityInput: '8',
       unit: '盒',
-      version: 0,
+      version: 1,
       stocked: true,
       saving: false,
       errorMessage: '',
@@ -838,6 +871,56 @@ test('reloads a conflicting row but keeps its attempted input', async () => {
         'DINNER_INVENTORY_VERSION_CONFLICT',
       ),
     }),
+  );
+});
+
+test('treats a remotely deleted target as create-only and retries with version zero', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const app = createAppMock({
+    ingredients: [ingredient(1, '番茄', '蔬菜', '个')],
+    inventory: [inventoryItem(1, { quantity: 2, version: 3 })],
+  });
+  app.getInventory
+    .mockResolvedValueOnce([inventoryItem(1, { quantity: 2, version: 3 })])
+    .mockResolvedValueOnce([]);
+  app.saveInventoryItem
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_INVENTORY_VERSION_CONFLICT', 'remote deletion'),
+    )
+    .mockResolvedValueOnce(inventoryItem(1, { quantity: 5, version: 1 }));
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  definition.onQuantityInput.call(instance, {
+    detail: { value: '5' },
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  await definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  expect(instance.data.items[0]).toEqual(
+    expect.objectContaining({
+      quantity: undefined,
+      quantityInput: '5',
+      version: 0,
+      stocked: false,
+      saving: false,
+    }),
+  );
+
+  await definition.onSaveItem.call(instance, {
+    currentTarget: { dataset: { id: 1 } },
+  });
+
+  expect(app.saveInventoryItem).toHaveBeenLastCalledWith(1, {
+    quantity: 5,
+    unit: '个',
+    version: 0,
+  });
+  expect(instance.data.items[0]).toEqual(
+    expect.objectContaining({ version: 1, stocked: true }),
   );
 });
 

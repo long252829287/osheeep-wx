@@ -111,7 +111,7 @@ CREATE TABLE dinner_household_inventory (
     ingredient_id BIGINT NOT NULL,
     quantity DECIMAL(12,3) NULL,
     unit VARCHAR(16) NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 1,
     updated_by BIGINT NOT NULL,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -282,6 +282,8 @@ public record UpsertInventoryItemRequest(
         @NotNull @PositiveOrZero Long version) {}
 ```
 
+Request/expected version `0` is a create-only sentinel: it is valid only when the household/ingredient row does not yet exist and is never persisted. Newly inserted rows start at persisted version `1`. If a row already exists, an expected version of `0` is always stale and must return `DINNER_INVENTORY_VERSION_CONFLICT`; subsequent updates and deletes must provide the exact persisted row version.
+
 Add exact errors:
 
 ```java
@@ -299,8 +301,8 @@ public InventoryItemResponse upsertInventoryItem(
         Long userId, Long ingredientId, BigDecimal quantity, String unit, long expectedVersion) {
     DinnerHouseholdMemberEntity membership = requireMembership(userId);
     requireActiveIngredient(ingredientId, membership.getHouseholdId());
-    DinnerHouseholdInventoryEntity item = inventoryMapper
-            .selectByHouseholdAndIngredientForUpdate(membership.getHouseholdId(), ingredientId);
+    DinnerHouseholdInventoryEntity item = lockInventoryItem(
+            membership.getHouseholdId(), ingredientId);
     if (item == null) {
         if (expectedVersion != 0L) {
             throw new BusinessException(ErrorCode.DINNER_INVENTORY_VERSION_CONFLICT);
@@ -308,22 +310,58 @@ public InventoryItemResponse upsertInventoryItem(
         item = new DinnerHouseholdInventoryEntity();
         item.setHouseholdId(membership.getHouseholdId());
         item.setIngredientId(ingredientId);
-        item.setVersion(0L);
+        item.setVersion(1L);
         item.setQuantity(quantity);
         item.setUnit(unit.strip());
         item.setUpdatedBy(userId);
-        inventoryMapper.insert(item);
+        insertInventoryItem(item);
     } else {
-        if (!Objects.equals(item.getVersion(), expectedVersion)) {
+        if (expectedVersion < 1L || !Objects.equals(item.getVersion(), expectedVersion)) {
             throw new BusinessException(ErrorCode.DINNER_INVENTORY_VERSION_CONFLICT);
         }
         item.setQuantity(quantity);
         item.setUnit(unit.strip());
         item.setUpdatedBy(userId);
         item.setVersion(item.getVersion() + 1L);
-        inventoryMapper.updateById(item);
+        updateInventoryItem(item);
     }
     return toInventoryResponse(item);
+}
+```
+
+The initial locking lookup does not prevent two transactions from both observing a missing row. Translate only the database failures that represent inventory contention:
+
+- `DuplicateKeyException` from `inventoryMapper.insert(item)` after a concurrent create wins `uk_dinner_household_inventory` becomes `DINNER_INVENTORY_VERSION_CONFLICT`.
+- `PessimisticLockingFailureException` from the locking lookup, insert, or update—including Spring's lock-wait timeout and deadlock subclasses—becomes the same conflict.
+- Do not catch a broad `DataAccessException` or `RuntimeException`; unrelated database failures must propagate to normal server-error handling.
+
+Keep the translation at the exact mapper calls rather than around the whole service method:
+
+```java
+private DinnerHouseholdInventoryEntity lockInventoryItem(
+        Long householdId, Long ingredientId) {
+    try {
+        return inventoryMapper.selectByHouseholdAndIngredientForUpdate(
+                householdId, ingredientId);
+    } catch (PessimisticLockingFailureException error) {
+        throw inventoryVersionConflict();
+    }
+}
+
+private void insertInventoryItem(DinnerHouseholdInventoryEntity item) {
+    try {
+        inventoryMapper.insert(item);
+    } catch (DuplicateKeyException | PessimisticLockingFailureException error) {
+        throw inventoryVersionConflict();
+    }
+}
+
+private void updateInventoryItem(DinnerHouseholdInventoryEntity item) {
+    try {
+        inventoryMapper.updateById(item);
+    } catch (PessimisticLockingFailureException error) {
+        throw inventoryVersionConflict();
+    }
 }
 ```
 

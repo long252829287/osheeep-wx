@@ -29,7 +29,13 @@ interface IngredientPageItem {
 
 interface IngredientGroup {
   category: string;
+  anchorId: string;
   items: IngredientPageItem[];
+}
+
+interface CategoryShortcut {
+  label: string;
+  targetId: string;
 }
 
 interface IngredientsData {
@@ -41,15 +47,22 @@ interface IngredientsData {
   loadErrorMessage: string;
   hasInventory: boolean;
   catalogEmpty: boolean;
+  activeCategory: string;
+  categoryShortcuts: CategoryShortcut[];
 }
 
 interface IngredientsInstance {
   data: IngredientsData;
-  setData(update: Partial<IngredientsData>): void;
+  setData(update: Partial<IngredientsData>, callback?: () => void): void;
   loadInventory(): Promise<void>;
   refreshVisibleGroups(query?: string): void;
   updateItem(ingredientId: number, update: Partial<IngredientPageItem>): void;
   replaceSavedItem(saved: InventoryItem): void;
+  onSelectCategory(event: {
+    currentTarget: {
+      dataset: { category?: string; target?: string };
+    };
+  }): void;
   recoverInventoryError(
     ingredientId: number,
     attemptedInput: string,
@@ -77,6 +90,7 @@ interface IngredientsPageDefinition {
     this: IngredientsInstance,
     event: { currentTarget: { dataset: { id?: number | string } } },
   ): Promise<void>;
+  onSelectCategory: IngredientsInstance['onSelectCategory'];
   refreshVisibleGroups: IngredientsInstance['refreshVisibleGroups'];
   updateItem: IngredientsInstance['updateItem'];
   replaceSavedItem: IngredientsInstance['replaceSavedItem'];
@@ -95,9 +109,13 @@ interface AppMock {
 const runtime = globalThis as unknown as {
   Page?: (definition: IngredientsPageDefinition) => void;
   getApp?: () => AppMock;
+  wx?: {
+    pageScrollTo: jest.Mock;
+  };
 };
 
 const originalGetApp = runtime.getApp;
+const originalWx = runtime.wx;
 
 const loadIngredientsPage = async (): Promise<IngredientsPageDefinition> => {
   const previousPage = runtime.Page;
@@ -129,13 +147,15 @@ const createInstance = (
       items: [...definition.data.items],
       groups: [...definition.data.groups],
     },
-    setData(update) {
+    setData(update, callback) {
       Object.assign(this.data, update);
+      callback?.();
     },
     loadInventory: definition.loadInventory,
     refreshVisibleGroups: definition.refreshVisibleGroups,
     updateItem: definition.updateItem,
     replaceSavedItem: definition.replaceSavedItem,
+    onSelectCategory: definition.onSelectCategory,
     recoverInventoryError: definition.recoverInventoryError,
   };
   return instance;
@@ -204,6 +224,8 @@ const flushPromises = async () => {
 afterEach(() => {
   if (originalGetApp) runtime.getApp = originalGetApp;
   else delete runtime.getApp;
+  if (originalWx) runtime.wx = originalWx;
+  else delete runtime.wx;
 });
 
 test('renders a quiet grouped utility list with every required state', () => {
@@ -229,8 +251,98 @@ test('renders a quiet grouped utility list with every required state', () => {
   expect(wxml).toContain('wx:if="{{!hasInventory && !emptySearch}}"');
   expect(wxml).toContain('wx:for="{{groups}}"');
   expect(wxml).toContain('wx:for="{{item.items}}"');
+  expect(wxml).toContain('class="category-shortcuts"');
+  expect(wxml).toContain('bindtap="onSelectCategory"');
+  expect(wxml).toContain('aria-label="跳转到{{item.label}}分类"');
+  expect(wxml).not.toContain('role="tablist"');
+  expect(wxml).not.toContain('role="tab"');
   expect(wxss).toContain('border-bottom: 1rpx solid');
   expect(wxss).not.toContain('.ingredient-row {\n  border-radius:');
+  expect(wxss).not.toContain('.save-button[disabled]');
+  expect(wxml).toContain("item.saving ? 'save-button--disabled' : ''");
+  expect(wxss).toMatch(
+    /\.ingredient-name\s*\{[^}]*min-width:\s*100rpx;[^}]*flex:\s*1 1 100rpx;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s,
+  );
+  expect(wxss).toMatch(/\.quantity-editor\s*\{[^}]*gap:\s*10rpx;/s);
+  expect(wxss).toMatch(/\.unit-label\s*\{[^}]*width:\s*56rpx;/s);
+  expect(wxss).toMatch(
+    /\.save-button\s*\{[^}]*box-sizing:\s*border-box;[^}]*width:\s*96rpx;[^}]*min-height:\s*88rpx;[^}]*flex:\s*0 0 96rpx;[^}]*padding:\s*0;[^}]*white-space:\s*nowrap;/s,
+  );
+});
+
+test('category shortcuts move to the selected group without filtering inventory', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const pageScrollTo = jest.fn();
+  runtime.wx = { pageScrollTo };
+
+  definition.onSelectCategory.call(instance, {
+    currentTarget: {
+      dataset: {
+        category: '蛋奶',
+        target: 'ingredient-category-dairy',
+      },
+    },
+  });
+
+  expect(instance.data.activeCategory).toBe('蛋奶');
+  expect(pageScrollTo).toHaveBeenCalledWith({
+    selector: '#ingredient-category-dairy',
+    duration: 200,
+  });
+});
+
+test('category shortcuts clear an active search before jumping to a restored group', async () => {
+  const definition = await loadIngredientsPage();
+  const instance = createInstance(definition);
+  const pageScrollTo = jest.fn();
+  runtime.wx = { pageScrollTo };
+  instance.data.items = [
+    {
+      ingredientId: 1,
+      name: '西红柿',
+      category: '蔬菜',
+      quantityInput: '',
+      unit: '克',
+      version: 0,
+      stocked: false,
+      saving: false,
+      errorMessage: '',
+    },
+    {
+      ingredientId: 2,
+      name: '鸡蛋',
+      category: '蛋奶',
+      quantityInput: '',
+      unit: '个',
+      version: 0,
+      stocked: false,
+      saving: false,
+      errorMessage: '',
+    },
+  ];
+  instance.data.searchQuery = '西红柿';
+  definition.refreshVisibleGroups.call(instance);
+
+  definition.onSelectCategory.call(instance, {
+    currentTarget: {
+      dataset: {
+        category: '蛋奶',
+        target: 'ingredient-category-dairy',
+      },
+    },
+  });
+
+  expect(instance.data.searchQuery).toBe('');
+  expect(instance.data.groups.map((group) => group.category)).toEqual([
+    '蔬菜',
+    '蛋奶',
+  ]);
+  expect(instance.data.activeCategory).toBe('蛋奶');
+  expect(pageScrollTo).toHaveBeenCalledWith({
+    selector: '#ingredient-category-dairy',
+    duration: 200,
+  });
 });
 
 test('loads catalog and inventory together, merging stock by ingredient id', async () => {
@@ -302,6 +414,7 @@ test('searches trimmed ingredient names and categories case-insensitively', asyn
   definition.onSearchInput.call(instance, {
     detail: { value: '  protein  ' },
   });
+  expect(instance.data.activeCategory).toBe('全部');
   expect(instance.data.groups).toHaveLength(1);
   expect(instance.data.groups[0].items[0].name).toBe('鸡蛋');
 

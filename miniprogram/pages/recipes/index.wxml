@@ -23,8 +23,19 @@
         <text class="pantry-summary">{{pantrySummary}}</text>
         <button class="text-action" bindtap="onToggleFiltersPanel" aria-expanded="{{filtersOpen}}">调整食材</button>
       </view>
-      <view wx:if="{{visibleIngredients.length}}" class="pantry-items" aria-label="家中食材摘要">
-        <text wx:for="{{visibleIngredients}}" wx:key="ingredientId" class="pantry-item">{{item.name}}</text>
+      <view wx:if="{{visibleIngredients.length}}" class="pantry-items {{ingredientsExpanded ? 'pantry-items--expanded' : ''}}" aria-label="家中食材摘要">
+        <block wx:if="{{ingredientsExpanded}}">
+          <text wx:for="{{inventory}}" wx:key="ingredientId" class="pantry-item">{{item.name}}</text>
+        </block>
+        <block wx:else>
+          <text wx:for="{{visibleIngredients}}" wx:key="ingredientId" class="pantry-item">{{item.name}}</text>
+        </block>
+        <button
+          wx:if="{{hasMoreIngredients}}"
+          class="pantry-expand"
+          bindtap="onToggleIngredientsExpanded"
+          aria-expanded="{{ingredientsExpanded}}"
+        >{{ingredientsExpanded ? '收起' : '展开全部'}}<image class="pantry-expand-icon {{ingredientsExpanded ? 'pantry-expand-icon--expanded' : ''}}" src="/assets/icons/chevron-gray.svg" mode="aspectFit" aria-hidden="true" /></button>
       </view>
       <text wx:else class="pantry-empty">库存还没有记录食材</text>
     </view>
@@ -75,7 +86,7 @@
           </view>
         </view>
         <button
-          class="add-button {{featured.added ? 'add-button--added' : ''}}"
+          class="add-button {{featured.added ? 'add-button--added' : ''}} {{featured.added || savingRecipeId ? 'add-button--disabled' : ''}}"
           data-id="{{featured.id}}"
           loading="{{savingRecipeId === featured.id}}"
           disabled="{{featured.added || savingRecipeId}}"
@@ -95,7 +106,7 @@
       <button
         wx:for="{{rows}}"
         wx:key="id"
-        class="recipe-row"
+        class="recipe-row {{savingRecipeId ? 'recipe-row--disabled' : ''}}"
         data-id="{{item.id}}"
         disabled="{{savingRecipeId}}"
         bindtap="onAddToTonight"
@@ -112,7 +123,7 @@
           <text wx:if="{{item.added}}" class="added-label">已加入今晚菜单</text>
           <text wx:elif="{{pendingRecipeId === item.id}}" class="retry-label">点按重试加入</text>
         </view>
-        <image class="row-chevron" src="/assets/icons/chevron-gray.svg" mode="aspectFit" aria-hidden="true" />
+        <text class="row-action {{item.added ? 'row-action--added' : ''}}">{{item.added ? '已加入' : (pendingRecipeId === item.id ? '重试' : '加入')}}</text>
       </button>
     </view>
 

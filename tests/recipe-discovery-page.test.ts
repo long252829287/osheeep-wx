@@ -37,6 +37,7 @@ interface RecipePageData {
   pantrySummary: string;
   visibleIngredients: InventoryItem[];
   hasMoreIngredients: boolean;
+  ingredientsExpanded: boolean;
   filtersOpen: boolean;
   selectableIngredients: FilterIngredient[];
   onlyCookable: boolean;
@@ -61,6 +62,7 @@ interface RecipePageInstance {
   onRetry(): Promise<void>;
   onToggleOnlyCookable(event: SwitchEvent): Promise<void>;
   onToggleFiltersPanel(): void;
+  onToggleIngredientsExpanded(): void;
   onCycleIngredientFilter(event: RecipeEvent): Promise<void>;
   onResetFilters(): Promise<void>;
   onAddToTonight(event: RecipeEvent): Promise<void>;
@@ -267,11 +269,39 @@ test('renders the approved discovery hierarchy and reachable states', () => {
   expect(wxml).toContain('食材库存');
   expect(wxml).toContain('bindtap="onCycleIngredientFilter"');
   expect(wxml).toContain('bindtap="onResetFilters"');
+  expect(wxml).toContain('wx:if="{{hasMoreIngredients}}"');
+  expect(wxml).toContain('bindtap="onToggleIngredientsExpanded"');
+  expect(wxml).toContain("ingredientsExpanded ? '收起' : '展开全部'");
+  expect(wxml).toContain('class="row-action');
+  expect(wxml).not.toContain('class="row-chevron"');
   expect(wxml).toContain('bindtap="onRetry"');
   expect(wxml).toContain('aria-label="{{featured.name}}菜品图片"');
   expect(wxml).toContain('<bottom-nav active="recipes" />');
   expect(wxss).toContain('env(safe-area-inset-bottom)');
   expect(wxss).toContain('@media (min-width: 430px)');
+  expect(wxss).not.toContain('.add-button[disabled]');
+  expect(wxss).not.toContain('.recipe-row[disabled]');
+  expect(wxml).toContain("'add-button--disabled'");
+  expect(wxml).toContain("'recipe-row--disabled'");
+  expect(wxss).toMatch(
+    /\.recipe-row\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*100%;[^}]*justify-content:\s*flex-start;/s,
+  );
+  expect(wxss).toMatch(/\.row-copy\s*\{[^}]*width:\s*0;[^}]*flex:\s*1 1 0%;/s);
+  expect(wxss).toMatch(/\.pantry-expand\s*\{[^}]*min-height:\s*88rpx;/s);
+  expect(wxss).not.toMatch(
+    /@media \(min-width: 430px\)[\s\S]*\.featured-image\s*\{[^}]*height:\s*390rpx;/,
+  );
+});
+
+test('expands and collapses the complete household pantry summary', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+
+  expect(instance.data.ingredientsExpanded).toBe(false);
+  definition.onToggleIngredientsExpanded.call(instance);
+  expect(instance.data.ingredientsExpanded).toBe(true);
+  definition.onToggleIngredientsExpanded.call(instance);
+  expect(instance.data.ingredientsExpanded).toBe(false);
 });
 
 test('loads inventory, exact current recipe query, and menu concurrently', async () => {

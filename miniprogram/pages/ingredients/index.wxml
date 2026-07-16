@@ -1,4 +1,4 @@
-<view class="page-shell">
+<view id="inventory-top" class="page-shell">
   <view class="page-heading">
     <text class="eyebrow">家里的食材</text>
     <text class="page-title">食材库存</text>
@@ -33,6 +33,18 @@
         />
       </view>
 
+      <view class="category-shortcuts" aria-label="食材分类快捷导航">
+        <button
+          wx:for="{{categoryShortcuts}}"
+          wx:key="label"
+          class="category-shortcut {{activeCategory === item.label ? 'category-shortcut--active' : ''}}"
+          aria-label="跳转到{{item.label}}分类"
+          data-category="{{item.label}}"
+          data-target="{{item.targetId}}"
+          bindtap="onSelectCategory"
+        >{{item.label}}</button>
+      </view>
+
       <view wx:if="{{!hasInventory && !emptySearch}}" class="inventory-guidance">
         <text class="guidance-title">还没有记录库存</text>
         <text class="guidance-copy">从下面选一种食材填写数量；留空保存表示数量未知。</text>
@@ -44,7 +56,7 @@
       </view>
 
       <view wx:else class="ingredient-groups">
-        <view wx:for="{{groups}}" wx:key="category" class="ingredient-group">
+        <view id="{{item.anchorId}}" wx:for="{{groups}}" wx:key="category" class="ingredient-group">
           <text class="category-heading">{{item.category}}</text>
           <view class="ingredient-list">
             <view wx:for="{{item.items}}" wx:key="ingredientId" class="ingredient-row">
@@ -65,7 +77,7 @@
                   />
                   <text class="unit-label">{{item.unit}}</text>
                   <button
-                    class="save-button"
+                    class="save-button {{item.saving ? 'save-button--disabled' : ''}}"
                     loading="{{item.saving}}"
                     disabled="{{item.saving}}"
                     aria-label="{{item.saving ? item.name + '库存保存中' : item.name + '保存库存'}}"

@@ -121,6 +121,39 @@
   font-size: 28rpx;
 }
 
+.category-shortcuts {
+  display: flex;
+  height: 82rpx;
+  align-items: stretch;
+  margin-top: 24rpx;
+  border-bottom: 1rpx solid #e4dccf;
+}
+
+.category-shortcut {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  min-height: 82rpx;
+  flex: 1 1 0%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border-bottom: 4rpx solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #77736b;
+  font-size: 25rpx;
+  line-height: 82rpx;
+  white-space: nowrap;
+}
+
+.category-shortcut--active {
+  border-bottom-color: #7b823b;
+  color: #707733;
+  font-weight: 700;
+}
+
 .input-placeholder {
   color: #aaa397;
 }
@@ -146,7 +179,7 @@
 }
 
 .ingredient-groups {
-  margin-top: 40rpx;
+  margin-top: 34rpx;
 }
 
 .ingredient-group + .ingredient-group {
@@ -178,17 +211,22 @@
 }
 
 .ingredient-name {
-  min-width: 150rpx;
-  flex: 1;
+  min-width: 100rpx;
+  overflow: hidden;
+  flex: 1 1 100rpx;
   color: #302e29;
   font-size: 29rpx;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quantity-editor {
   display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
 }
 
 .quantity-input {
@@ -210,7 +248,7 @@
 }
 
 .unit-label {
-  width: 68rpx;
+  width: 56rpx;
   overflow: hidden;
   color: #77736b;
   font-size: 23rpx;
@@ -219,24 +257,28 @@
 }
 
 .save-button {
+  box-sizing: border-box;
   display: flex;
-  min-width: 92rpx;
-  min-height: 68rpx;
+  width: 96rpx;
+  min-width: 96rpx;
+  min-height: 88rpx;
+  flex: 0 0 96rpx;
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 0 18rpx;
-  border-radius: 34rpx;
-  background: #c95328;
-  color: #ffffff;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #c95328;
   font-size: 24rpx;
   font-weight: 700;
-  line-height: 68rpx;
+  line-height: 88rpx;
+  white-space: nowrap;
 }
 
-.save-button[disabled] {
-  background: #d8a58e;
-  color: #fffaf6;
+.save-button--disabled {
+  background: transparent;
+  color: #b8a49b;
 }
 
 .row-error {

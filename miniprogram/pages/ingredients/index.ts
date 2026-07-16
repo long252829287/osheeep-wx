@@ -31,8 +31,32 @@ interface IngredientPageItem {
 
 interface IngredientGroup {
   category: string;
+  anchorId: string;
   items: IngredientPageItem[];
 }
+
+interface CategoryShortcut {
+  label: string;
+  targetId: string;
+}
+
+const CATEGORY_ANCHOR_IDS: Record<string, string> = {
+  蔬菜: 'ingredient-category-vegetables',
+  蛋奶: 'ingredient-category-dairy',
+  肉类: 'ingredient-category-meat',
+  主食: 'ingredient-category-staples',
+  干货: 'ingredient-category-dried',
+  调味料: 'ingredient-category-seasonings',
+  饮品: 'ingredient-category-drinks',
+};
+
+const CATEGORY_SHORTCUTS: CategoryShortcut[] = [
+  { label: '全部', targetId: 'inventory-top' },
+  { label: '蔬菜', targetId: CATEGORY_ANCHOR_IDS.蔬菜 },
+  { label: '蛋奶', targetId: CATEGORY_ANCHOR_IDS.蛋奶 },
+  { label: '肉类', targetId: CATEGORY_ANCHOR_IDS.肉类 },
+  { label: '主食', targetId: CATEGORY_ANCHOR_IDS.主食 },
+];
 
 const quantityInputOf = (quantity?: number | null) =>
   quantity === undefined || quantity === null ? '' : String(quantity);
@@ -101,8 +125,10 @@ const groupVisibleRows = (
     group.push(item);
     groups.set(item.category, group);
   }
-  return [...groups].map(([category, groupItems]) => ({
+  return [...groups].map(([category, groupItems], index) => ({
     category,
+    anchorId:
+      CATEGORY_ANCHOR_IDS[category] ?? `ingredient-category-${String(index)}`,
     items: groupItems,
   }));
 };
@@ -137,6 +163,8 @@ Page({
     loadErrorMessage: '',
     hasInventory: false,
     catalogEmpty: false,
+    activeCategory: '蔬菜',
+    categoryShortcuts: CATEGORY_SHORTCUTS,
   },
 
   async onShow() {
@@ -192,11 +220,40 @@ Page({
     });
   },
 
+  onSelectCategory(event: WechatMiniprogram.TouchEvent) {
+    const activeCategory = String(event.currentTarget.dataset.category ?? '');
+    const targetId = String(event.currentTarget.dataset.target ?? '');
+    if (!activeCategory || !targetId) return;
+
+    const scrollToCategory = () => {
+      wx.pageScrollTo({
+        selector: `#${targetId}`,
+        duration: 200,
+      });
+    };
+
+    if (this.data.searchQuery.trim()) {
+      this.setData(
+        {
+          searchQuery: '',
+          groups: groupVisibleRows(this.data.items, ''),
+          activeCategory,
+          emptySearch: false,
+        },
+        scrollToCategory,
+      );
+      return;
+    }
+
+    this.setData({ activeCategory }, scrollToCategory);
+  },
+
   refreshVisibleGroups(query?: string) {
     const searchQuery = query ?? this.data.searchQuery;
     const groups = groupVisibleRows(this.data.items, searchQuery);
     this.setData({
       groups,
+      activeCategory: searchQuery.trim() ? '全部' : this.data.activeCategory,
       emptySearch:
         !this.data.catalogEmpty &&
         Boolean(searchQuery.trim()) &&

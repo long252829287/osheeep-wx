@@ -159,6 +159,7 @@ Page({
     pantrySummary: '家里有 0 种食材',
     visibleIngredients: [] as InventoryItem[],
     hasMoreIngredients: false,
+    ingredientsExpanded: false,
     filtersOpen: false,
     selectableIngredients: [] as FilterIngredient[],
     onlyCookable: false,
@@ -354,6 +355,10 @@ Page({
 
   onToggleFiltersPanel() {
     this.setData({ filtersOpen: !this.data.filtersOpen });
+  },
+
+  onToggleIngredientsExpanded() {
+    this.setData({ ingredientsExpanded: !this.data.ingredientsExpanded });
   },
 
   async onCycleIngredientFilter(event: WechatMiniprogram.TouchEvent) {

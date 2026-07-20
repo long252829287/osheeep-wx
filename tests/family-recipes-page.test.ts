@@ -17,8 +17,10 @@ interface FamilyRecipesPageData {
   loading: boolean;
   refreshing: boolean;
   creating: boolean;
+  pendingDraftId: number;
   items: FamilyRecipeListItem[];
   errorMessage: string;
+  errorSource: '' | 'LIST' | 'CREATE' | 'OPEN_DRAFT';
 }
 
 interface TabEvent {
@@ -34,10 +36,12 @@ interface FamilyRecipesPageInstance {
   setData(update: Partial<FamilyRecipesPageData>): void;
   onLoad(query: { tab?: string }): void;
   onShow(): Promise<void>;
+  onHide(): void;
+  onUnload(): void;
   onRetry(): Promise<void>;
   onSelectTab(event: TabEvent): Promise<void>;
   onCreateDraft(): Promise<void>;
-  onOpenRecipe(event: RecipeEvent): void;
+  onOpenRecipe(event: RecipeEvent): Promise<void>;
 }
 
 interface FamilyRecipesPageDefinition extends FamilyRecipesPageInstance {
@@ -52,10 +56,16 @@ interface AppMock {
   createRecipeDraft: jest.Mock<Promise<RecipeDraft>, []>;
 }
 
+interface NavigateToOptions {
+  url: string;
+  success?: () => void;
+  fail?: () => void;
+}
+
 const runtime = globalThis as unknown as {
   Page?: (definition: FamilyRecipesPageDefinition) => void;
   getApp?: () => AppMock;
-  wx?: { navigateTo: jest.Mock };
+  wx?: { navigateTo: jest.Mock<void, [NavigateToOptions]> };
 };
 
 const originalGetApp = runtime.getApp;
@@ -167,7 +177,11 @@ const recipeEvent = (id: number | string): RecipeEvent => ({
 });
 
 beforeEach(() => {
-  runtime.wx = { navigateTo: jest.fn() };
+  runtime.wx = {
+    navigateTo: jest.fn<void, [NavigateToOptions]>((options) => {
+      options.success?.();
+    }),
+  };
 });
 
 afterEach(() => {
@@ -201,6 +215,15 @@ test('renders native navigation, tabs, explicit empty states and restrained acti
   expect(wxml).toContain('修改');
   expect(wxml).toContain('编辑进度');
   expect(wxml).toContain('已归档菜谱');
+  expect(wxml).toContain('aria-role="tablist"');
+  expect(wxml).toContain('aria-role="tab"');
+  expect(wxml).toContain('aria-role="alert"');
+  expect(wxml).toContain('aria-live="polite"');
+  expect(wxml).not.toMatch(/\srole="/);
+  expect(wxml).toContain("errorSource === 'CREATE' ? '重试新建'");
+  expect(wxml).toContain("errorSource === 'OPEN_DRAFT' ? '继续编辑'");
+  expect(wxml).toContain('item.servings && item.estimatedMinutes');
+  expect(wxml).not.toContain('> · {{item.estimatedMinutes}} 分钟</text>');
   expect(wxml).not.toContain('<bottom-nav');
   expect(wxml).not.toContain('navigation-back');
   expect(wxss).toMatch(/\.page-shell\s*\{[^}]*padding:[^;]*38rpx/s);
@@ -215,6 +238,10 @@ test('renders native navigation, tabs, explicit empty states and restrained acti
     );
   }
   expect(wxss).not.toMatch(/[^@]\[[^\]]+\]\s*\{/);
+  expect(wxss).not.toMatch(/\.recipe-row--archived\s*\{[^}]*opacity:/s);
+  expect(wxss).toMatch(
+    /\.recipe-row--archived \.recipe-image,[^}]*\.recipe-row--archived \.recipe-name[^}]*\{[^}]*opacity:/s,
+  );
 
   const colors = [...wxss.matchAll(/#[0-9a-fA-F]{6}/g)].map(([color]) =>
     color.toUpperCase(),
@@ -232,8 +259,10 @@ test('starts with the exact published-list state', async () => {
     loading: true,
     refreshing: false,
     creating: false,
+    pendingDraftId: 0,
     items: [],
     errorMessage: '',
+    errorSource: '',
   });
 });
 
@@ -298,6 +327,7 @@ test('keeps existing rows during a failed refresh and retries the active tab', a
   await page.onShow();
   expect(page.data.items.map((item) => item.id)).toEqual([4]);
   expect(page.data.errorMessage).not.toBe('');
+  expect(page.data.errorSource).toBe('LIST');
   expect(page.data.loading).toBe(false);
   expect(page.data.refreshing).toBe(false);
 
@@ -305,6 +335,7 @@ test('keeps existing rows during a failed refresh and retries the active tab', a
   expect(app.listFamilyRecipes).toHaveBeenLastCalledWith('PUBLISHED');
   expect(page.data.items.map((item) => item.id)).toEqual([5]);
   expect(page.data.errorMessage).toBe('');
+  expect(page.data.errorSource).toBe('');
 });
 
 test('creates a draft once and opens its editor', async () => {
@@ -313,6 +344,7 @@ test('creates a draft once and opens its editor', async () => {
   app.createRecipeDraft.mockReturnValue(created.promise);
   runtime.getApp = () => app;
   const page = createPageInstance(await loadPage());
+  await page.onShow();
 
   const first = page.onCreateDraft();
   const duplicate = page.onCreateDraft();
@@ -323,9 +355,9 @@ test('creates a draft once and opens its editor', async () => {
   await Promise.all([first, duplicate]);
 
   expect(runtime.wx?.navigateTo).toHaveBeenCalledTimes(1);
-  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
-    url: '/pages/recipe-editor/index?id=9',
-  });
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+    expect.objectContaining({ url: '/pages/recipe-editor/index?id=9' }),
+  );
   expect(page.data.creating).toBe(false);
 });
 
@@ -336,30 +368,258 @@ test('keeps the list after create failure and lets the create action retry', asy
     .mockResolvedValueOnce(draft(11));
   runtime.getApp = () => app;
   const page = createPageInstance(await loadPage());
+  await page.onShow();
   page.setData({ items: [listItem(3, 'PUBLISHED')] });
 
   await page.onCreateDraft();
   expect(page.data.items.map((item) => item.id)).toEqual([3]);
   expect(page.data.errorMessage).not.toBe('');
+  expect(page.data.errorSource).toBe('CREATE');
   expect(page.data.creating).toBe(false);
 
-  await page.onCreateDraft();
+  await page.onRetry();
   expect(app.createRecipeDraft).toHaveBeenCalledTimes(2);
-  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
-    url: '/pages/recipe-editor/index?id=11',
-  });
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+    expect.objectContaining({ url: '/pages/recipe-editor/index?id=11' }),
+  );
   expect(page.data.errorMessage).toBe('');
+  expect(page.data.errorSource).toBe('');
 });
 
 test('opens only recipes with a valid positive id', async () => {
+  const app = createAppMock();
+  runtime.getApp = () => app;
   const page = createPageInstance(await loadPage());
+  await page.onShow();
 
-  page.onOpenRecipe(recipeEvent(12));
-  page.onOpenRecipe(recipeEvent('bad'));
-  page.onOpenRecipe(recipeEvent(0));
+  await page.onOpenRecipe(recipeEvent(12));
+  await page.onOpenRecipe(recipeEvent('bad'));
+  await page.onOpenRecipe(recipeEvent(0));
 
   expect(runtime.wx?.navigateTo).toHaveBeenCalledTimes(1);
-  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
-    url: '/pages/recipe-editor/index?id=12',
-  });
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+    expect.objectContaining({ url: '/pages/recipe-editor/index?id=12' }),
+  );
 });
+
+test('isolates list request tokens between page instances', async () => {
+  const firstRequest = deferred<FamilyRecipeListItem[]>();
+  const secondRequest = deferred<FamilyRecipeListItem[]>();
+  const app = createAppMock();
+  app.listFamilyRecipes
+    .mockReturnValueOnce(firstRequest.promise)
+    .mockReturnValueOnce(secondRequest.promise);
+  runtime.getApp = () => app;
+  const definition = await loadPage();
+  const firstPage = createPageInstance(definition);
+  const secondPage = createPageInstance(definition);
+
+  const firstLoad = firstPage.onShow();
+  const secondLoad = secondPage.onShow();
+  firstRequest.resolve([listItem(21, 'PUBLISHED')]);
+  await firstLoad;
+  secondRequest.resolve([listItem(22, 'PUBLISHED')]);
+  await secondLoad;
+
+  expect(firstPage.data.items.map((item) => item.id)).toEqual([21]);
+  expect(secondPage.data.items.map((item) => item.id)).toEqual([22]);
+});
+
+test('keeps the newest same-tab onShow response', async () => {
+  const older = deferred<FamilyRecipeListItem[]>();
+  const newer = deferred<FamilyRecipeListItem[]>();
+  const app = createAppMock();
+  app.listFamilyRecipes
+    .mockReturnValueOnce(older.promise)
+    .mockReturnValueOnce(newer.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadPage());
+
+  const first = page.onShow();
+  const second = page.onShow();
+  newer.resolve([listItem(32, 'PUBLISHED')]);
+  await second;
+  older.resolve([listItem(31, 'PUBLISHED')]);
+  await first;
+
+  expect(page.data.items.map((item) => item.id)).toEqual([32]);
+});
+
+test.each([
+  { lifecycle: 'hide', settlement: 'resolve' },
+  { lifecycle: 'hide', settlement: 'reject' },
+  { lifecycle: 'unload', settlement: 'resolve' },
+  { lifecycle: 'unload', settlement: 'reject' },
+] as const)(
+  'does not update a page when list requests $settlement after $lifecycle',
+  async ({ lifecycle, settlement }) => {
+    const request = deferred<FamilyRecipeListItem[]>();
+    const app = createAppMock();
+    app.listFamilyRecipes.mockReturnValue(request.promise);
+    runtime.getApp = () => app;
+    const page = createPageInstance(await loadPage());
+    const setData = jest.spyOn(page, 'setData');
+
+    const loading = page.onShow();
+    if (lifecycle === 'hide') page.onHide();
+    else page.onUnload();
+    const callsAtLifecycle = setData.mock.calls.length;
+
+    if (settlement === 'resolve') {
+      request.resolve([listItem(41, 'PUBLISHED')]);
+    } else {
+      request.reject(new Error('offline'));
+    }
+    await loading;
+
+    expect(setData).toHaveBeenCalledTimes(callsAtLifecycle);
+    expect(page.data.items).toEqual([]);
+  },
+);
+
+test('does not navigate when create resolves while hidden and resumes the same draft', async () => {
+  const created = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.createRecipeDraft.mockReturnValue(created.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadPage());
+  await page.onShow();
+  const setData = jest.spyOn(page, 'setData');
+
+  const creating = page.onCreateDraft();
+  page.onHide();
+  const callsAtHide = setData.mock.calls.length;
+  created.resolve(draft(51));
+  await creating;
+
+  expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+  expect(setData).toHaveBeenCalledTimes(callsAtHide);
+  expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+
+  await page.onShow();
+  expect(page.data.pendingDraftId).toBe(51);
+  expect(page.data.errorSource).toBe('OPEN_DRAFT');
+  expect(page.data.errorMessage).toBe('草稿已新建，可继续编辑');
+  expect(page.data.creating).toBe(false);
+
+  await page.onCreateDraft();
+  expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+    expect.objectContaining({ url: '/pages/recipe-editor/index?id=51' }),
+  );
+});
+
+test('does not update or navigate when create resolves after unload', async () => {
+  const created = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.createRecipeDraft.mockReturnValue(created.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadPage());
+  await page.onShow();
+  const setData = jest.spyOn(page, 'setData');
+
+  const creating = page.onCreateDraft();
+  page.onUnload();
+  const callsAtUnload = setData.mock.calls.length;
+  created.resolve(draft(61));
+  await creating;
+
+  expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+  expect(setData).toHaveBeenCalledTimes(callsAtUnload);
+});
+
+test('holds the duplicate guard through navigation and retries the created id without creating twice', async () => {
+  const app = createAppMock();
+  app.createRecipeDraft.mockResolvedValue(draft(71));
+  runtime.getApp = () => app;
+  runtime.wx = {
+    navigateTo: jest.fn<void, [NavigateToOptions]>(),
+  };
+  const page = createPageInstance(await loadPage());
+  await page.onShow();
+
+  const first = page.onCreateDraft();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(runtime.wx.navigateTo).toHaveBeenCalledTimes(1);
+  expect(page.data.creating).toBe(true);
+
+  const duplicate = page.onCreateDraft();
+  expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+  runtime.wx.navigateTo.mock.calls[0][0].fail?.();
+  await Promise.all([first, duplicate]);
+
+  expect(page.data.creating).toBe(false);
+  expect(page.data.pendingDraftId).toBe(71);
+  expect(page.data.errorSource).toBe('OPEN_DRAFT');
+  expect(page.data.errorMessage).toBe('草稿已新建，可继续编辑');
+
+  const retry = page.onRetry();
+  await Promise.resolve();
+  expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+  expect(runtime.wx.navigateTo).toHaveBeenCalledTimes(2);
+  expect(runtime.wx.navigateTo.mock.calls[1][0].url).toBe(
+    '/pages/recipe-editor/index?id=71',
+  );
+  runtime.wx.navigateTo.mock.calls[1][0].success?.();
+  await retry;
+
+  expect(page.data.pendingDraftId).toBe(0);
+  expect(page.data.errorSource).toBe('');
+});
+
+test('retries a failed existing-recipe navigation without creating a draft', async () => {
+  const app = createAppMock();
+  runtime.getApp = () => app;
+  runtime.wx = {
+    navigateTo: jest.fn<void, [NavigateToOptions]>(),
+  };
+  const page = createPageInstance(await loadPage());
+  await page.onShow();
+
+  const opening = page.onOpenRecipe(recipeEvent(81));
+  await Promise.resolve();
+  runtime.wx.navigateTo.mock.calls[0][0].fail?.();
+  await opening;
+
+  expect(page.data.errorSource).toBe('OPEN_DRAFT');
+  expect(app.createRecipeDraft).not.toHaveBeenCalled();
+
+  const retry = page.onRetry();
+  await Promise.resolve();
+  expect(runtime.wx.navigateTo.mock.calls[1][0].url).toBe(
+    '/pages/recipe-editor/index?id=81',
+  );
+  runtime.wx.navigateTo.mock.calls[1][0].success?.();
+  await retry;
+  expect(app.createRecipeDraft).not.toHaveBeenCalled();
+});
+
+test.each(['hide', 'unload'] as const)(
+  'does not set data when a navigation callback settles after %s',
+  async (lifecycle) => {
+    const app = createAppMock();
+    runtime.getApp = () => app;
+    runtime.wx = {
+      navigateTo: jest.fn<void, [NavigateToOptions]>(),
+    };
+    const page = createPageInstance(await loadPage());
+    await page.onShow();
+    const setData = jest.spyOn(page, 'setData');
+
+    const opening = page.onOpenRecipe(recipeEvent(91));
+    await Promise.resolve();
+    if (lifecycle === 'hide') page.onHide();
+    else page.onUnload();
+    const callsAtLifecycle = setData.mock.calls.length;
+    runtime.wx.navigateTo.mock.calls[0][0].fail?.();
+    await opening;
+
+    expect(setData).toHaveBeenCalledTimes(callsAtLifecycle);
+    if (lifecycle === 'hide') {
+      await page.onShow();
+      expect(page.data.errorSource).toBe('OPEN_DRAFT');
+      expect(page.data.errorMessage).toBe('暂时无法打开菜谱，请继续编辑');
+    }
+  },
+);

@@ -194,10 +194,6 @@ page {
   text-align: left;
 }
 
-.recipe-row--archived {
-  opacity: 0.56;
-}
-
 .recipe-image {
   box-sizing: border-box;
   width: 192rpx;
@@ -248,6 +244,12 @@ page {
 
 .recipe-facts {
   margin-top: 7rpx;
+}
+
+.recipe-row--archived .recipe-image,
+.recipe-row--archived .recipe-name,
+.recipe-row--archived .recipe-facts {
+  opacity: 0.58;
 }
 
 .row-action {

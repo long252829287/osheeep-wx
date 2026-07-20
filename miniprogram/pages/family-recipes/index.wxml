@@ -6,24 +6,24 @@
   </view>
 
   <view class="list-toolbar">
-    <view class="tab-rail" role="tablist" aria-label="家庭菜谱分类">
+    <view class="tab-rail" aria-role="tablist" aria-label="家庭菜谱分类">
       <button
         class="tab-button {{activeTab === 'PUBLISHED' ? 'tab-button--active' : ''}}"
-        role="tab"
+        aria-role="tab"
         aria-selected="{{activeTab === 'PUBLISHED'}}"
         data-tab="PUBLISHED"
         bindtap="onSelectTab"
       >已发布</button>
       <button
         class="tab-button {{activeTab === 'DRAFT' ? 'tab-button--active' : ''}}"
-        role="tab"
+        aria-role="tab"
         aria-selected="{{activeTab === 'DRAFT'}}"
         data-tab="DRAFT"
         bindtap="onSelectTab"
       >我的草稿</button>
       <button
         class="tab-button {{activeTab === 'ARCHIVED' ? 'tab-button--active' : ''}}"
-        role="tab"
+        aria-role="tab"
         aria-selected="{{activeTab === 'ARCHIVED'}}"
         data-tab="ARCHIVED"
         bindtap="onSelectTab"
@@ -34,16 +34,16 @@
       class="create-button {{creating ? 'create-button--disabled' : ''}}"
       loading="{{creating}}"
       disabled="{{creating}}"
-      aria-label="{{creating ? '正在新建菜谱' : '新建菜谱'}}"
+      aria-label="{{creating ? '正在处理菜谱' : pendingDraftId ? '继续编辑已新建草稿' : '新建菜谱'}}"
       bindtap="onCreateDraft"
-    >{{creating ? '新建中' : '新建菜谱'}}</button>
+    >{{creating ? '处理中' : pendingDraftId ? '继续编辑' : '新建菜谱'}}</button>
   </view>
 
   <text wx:if="{{refreshing}}" class="refreshing-copy">正在更新菜谱…</text>
 
-  <view wx:if="{{errorMessage}}" class="error-state" role="alert">
+  <view wx:if="{{errorMessage}}" class="error-state" aria-role="alert" aria-live="polite">
     <text class="error-copy">{{errorMessage}}</text>
-    <button class="retry-button" bindtap="onRetry">重新加载</button>
+    <button class="retry-button" bindtap="onRetry">{{errorSource === 'CREATE' ? '重试新建' : errorSource === 'OPEN_DRAFT' ? '继续编辑' : '重新加载'}}</button>
   </view>
 
   <view wx:if="{{loading}}" class="loading-state">正在整理家庭菜谱…</view>
@@ -62,9 +62,10 @@
         class="recipe-image"
         src="{{item.imageUrl}}"
         mode="aspectFill"
+        aria-role="img"
         aria-label="{{item.name || '未命名菜谱'}}图片"
       />
-      <view wx:else class="recipe-image recipe-image--empty" role="img" aria-label="暂无菜谱图片">
+      <view wx:else class="recipe-image recipe-image--empty" aria-role="img" aria-label="暂无菜谱图片">
         <text class="image-empty-copy">暂无图片</text>
       </view>
 
@@ -92,7 +93,8 @@
 
         <view class="recipe-facts">
           <text wx:if="{{item.servings}}">{{item.servings}} 人份</text>
-          <text wx:if="{{item.estimatedMinutes}}"> · {{item.estimatedMinutes}} 分钟</text>
+          <text wx:if="{{item.servings && item.estimatedMinutes}}"> · </text>
+          <text wx:if="{{item.estimatedMinutes}}">{{item.estimatedMinutes}} 分钟</text>
         </view>
       </view>
 

@@ -69,6 +69,23 @@ test('declares the household recipe list as a native page route', () => {
   }
 });
 
+test('declares native custom recipe editor and approved image picker routes', () => {
+  const app = JSON.parse(
+    readFileSync(resolve(root, 'miniprogram/app.json'), 'utf8'),
+  ) as { pages?: string[] };
+
+  for (const route of ['recipe-editor', 'recipe-images']) {
+    expect(app.pages).toContain(`pages/${route}/index`);
+    for (const extension of ['json', 'ts', 'wxml', 'wxss']) {
+      expect(
+        existsSync(
+          resolve(root, `miniprogram/pages/${route}/index.${extension}`),
+        ),
+      ).toBe(true);
+    }
+  }
+});
+
 test('declares a valid default sitemap rule for upload', () => {
   const sitemap = JSON.parse(
     readFileSync(resolve(root, 'miniprogram/sitemap.json'), 'utf8'),

@@ -1,0 +1,96 @@
+<view class="page-shell">
+  <view class="page-heading">
+    <text class="eyebrow">已审核图库</text>
+    <text class="page-title">为菜谱选一张图</text>
+    <text class="page-copy">图片来源和许可会随菜谱保留</text>
+  </view>
+
+  <view class="search-field">
+    <text class="search-label">搜索</text>
+    <input
+      class="search-input"
+      value="{{searchQuery}}"
+      placeholder="菜名或作者"
+      placeholder-class="input-placeholder"
+      confirm-type="search"
+      aria-label="搜索已审核菜谱图片"
+      bindinput="onSearchInput"
+    />
+  </view>
+
+  <view wx:if="{{loading}}" class="loading-state" aria-label="正在读取已审核图片">
+    <view class="skeleton-photo"></view>
+    <view class="skeleton-line"></view>
+    <view class="skeleton-line skeleton-line--short"></view>
+  </view>
+
+  <view
+    wx:elif="{{loadErrorMessage}}"
+    class="request-state"
+    aria-role="alert"
+    aria-live="polite"
+  >
+    <text class="request-title">暂时没能读取图片</text>
+    <text class="request-copy">{{loadErrorMessage}}</text>
+    <button class="retry-button" bindtap="onRetry">重新加载</button>
+  </view>
+
+  <view wx:elif="{{!visibleAssets.length}}" class="empty-state">
+    <text class="empty-title">没有找到匹配图片</text>
+    <text class="empty-copy">换个菜名或作者试试</text>
+  </view>
+
+  <view wx:else class="asset-list">
+    <text class="result-count">{{visibleAssets.length}} 张可用图片</text>
+    <view wx:for="{{visibleAssets}}" wx:key="id" class="asset-group">
+      <image
+        class="asset-photo"
+        src="{{item.detailUrl}}"
+        mode="aspectFill"
+        aria-label="{{item.displayName}}"
+      />
+      <text class="asset-name">{{item.displayName}}</text>
+      <view class="provenance-row"><text>作者</text><text class="provenance-value">{{item.author}}</text></view>
+      <view class="provenance-row"><text>许可</text><text class="provenance-value">{{item.licenseName}}</text></view>
+      <view class="provenance-row provenance-row--source">
+        <text>来源</text>
+        <text class="source-address" selectable>{{item.sourcePageUrl}}</text>
+      </view>
+      <button
+        class="copy-button"
+        aria-label="复制{{item.displayName}}来源地址"
+        data-id="{{item.id}}"
+        bindtap="onCopySource"
+      >复制来源地址</button>
+      <view class="provenance-row"><text>获取日期</text><text class="provenance-value">{{item.acquiredOn}}</text></view>
+      <text class="approved-note">只显示已审核、可追溯的真实图片</text>
+      <button
+        class="asset-choice {{selectedId === item.id ? 'asset-choice--selected' : ''}}"
+        disabled="{{selectingId !== 0}}"
+        aria-label="{{selectedId === item.id ? item.displayName + '已选中' : '选择' + item.displayName}}"
+        aria-checked="{{selectedId === item.id}}"
+        data-id="{{item.id}}"
+        bindtap="onMarkImage"
+      >{{selectedId === item.id ? '已选择' : '选择此图'}}</button>
+    </view>
+  </view>
+</view>
+
+<view
+  wx:if="{{!loading && !loadErrorMessage && visibleAssets.length}}"
+  class="image-action-bar"
+>
+  <text
+    wx:if="{{interactionErrorMessage}}"
+    class="interaction-error"
+    aria-role="alert"
+    aria-live="polite"
+  >{{interactionErrorMessage}}</text>
+  <button
+    class="select-button"
+    loading="{{selectingId !== 0}}"
+    disabled="{{selectedId === 0 || selectingId !== 0}}"
+    data-id="{{selectedId}}"
+    bindtap="onSelectImage"
+  >{{selectingId !== 0 ? '正在返回' : interactionErrorMessage ? '返回编辑器' : '使用这张图片'}}</button>
+</view>

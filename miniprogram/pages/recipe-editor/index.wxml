@@ -1,0 +1,412 @@
+<view class="page-shell">
+  <view wx:if="{{loading}}" class="loading-state" aria-label="正在读取菜谱">
+    <view class="skeleton-line skeleton-line--short"></view>
+    <view class="skeleton-line skeleton-line--title"></view>
+    <view class="skeleton-line"></view>
+    <view class="skeleton-block"></view>
+  </view>
+
+  <view
+    wx:elif="{{loadErrorMessage}}"
+    class="request-state"
+    aria-role="alert"
+    aria-live="polite"
+  >
+    <text class="request-title">暂时没能读取菜谱</text>
+    <text class="request-copy">{{loadErrorMessage}}</text>
+    <button class="retry-button" bindtap="onRetryLoad">重新加载</button>
+  </view>
+
+  <block wx:elif="{{draft}}">
+    <view class="page-heading">
+      <text class="eyebrow">{{readOnly ? '家庭菜谱' : '我的草稿'}}</text>
+      <text class="page-title">{{nameInput || '未命名菜谱'}}</text>
+      <view wx:if="{{!readOnly}}" class="save-status" aria-live="polite">
+        <text wx:if="{{saveState === 'saving'}}" class="save-status__text save-status__text--active">保存中</text>
+        <text wx:elif="{{saveState === 'saved'}}" class="save-status__text save-status__text--saved">已保存</text>
+        <text wx:elif="{{saveState === 'error'}}" class="save-status__text save-status__text--error">保存失败</text>
+        <text wx:elif="{{saveState === 'conflict'}}" class="save-status__text save-status__text--error">版本冲突</text>
+        <text wx:else class="save-status__text">{{saveMessage}}</text>
+        <button
+          wx:if="{{saveState === 'error' || saveState === 'conflict'}}"
+          class="inline-retry"
+          bindtap="onRetrySave"
+        >{{saveState === 'conflict' ? '刷新并重试' : '重试保存'}}</button>
+      </view>
+      <view
+        wx:else
+        class="readonly-notice"
+        aria-role="status"
+      >这份菜谱仅供查看，不会发送编辑或发布请求</view>
+    </view>
+
+    <view
+      wx:if="{{publishErrorMessage}}"
+      class="feedback-banner"
+      aria-role="alert"
+      aria-live="polite"
+    >{{publishErrorMessage}}</view>
+
+    <view wx:if="{{catalogErrorMessage}}" class="catalog-note" aria-live="polite">
+      {{catalogErrorMessage}}
+    </view>
+
+    <view class="step-rail" aria-role="tablist" aria-label="菜谱编辑步骤">
+      <button
+        wx:for="{{stepOptions}}"
+        wx:key="key"
+        class="step-button {{activeStep === item.key ? 'step-button--active' : ''}}"
+        aria-role="tab"
+        aria-label="{{item.label}}步骤"
+        aria-selected="{{activeStep === item.key}}"
+        disabled="{{readOnly || navigationPending || publishing}}"
+        data-step="{{item.key}}"
+        bindtap="onSelectStep"
+      >
+        <text class="step-number">{{index + 1}}</text>
+        <text class="step-label">{{item.label}}</text>
+      </button>
+    </view>
+
+    <view wx:if="{{activeStep === 'BASIC'}}" class="editor-section">
+      <view class="section-heading">
+        <text class="section-title">基本信息</text>
+        <text class="section-copy">先写下这道菜最常用的信息</text>
+      </view>
+
+      <label class="field-row">
+        <text class="field-label">菜名</text>
+        <input
+          class="text-input {{fieldErrors.name ? 'text-input--error' : ''}}"
+          maxlength="41"
+          value="{{nameInput}}"
+          placeholder="例如：番茄炒蛋"
+          placeholder-class="input-placeholder"
+          aria-label="菜名"
+          data-field="name"
+          bindinput="onBasicInput"
+        />
+        <text wx:if="{{fieldErrors.name}}" class="field-error" aria-role="alert">{{fieldErrors.name}}</text>
+      </label>
+
+      <label class="field-row">
+        <text class="field-label">分类</text>
+        <input
+          class="text-input {{fieldErrors.category ? 'text-input--error' : ''}}"
+          maxlength="17"
+          value="{{categoryInput}}"
+          placeholder="例如：家常菜"
+          placeholder-class="input-placeholder"
+          aria-label="菜谱分类"
+          data-field="category"
+          bindinput="onBasicInput"
+        />
+        <text wx:if="{{fieldErrors.category}}" class="field-error" aria-role="alert">{{fieldErrors.category}}</text>
+      </label>
+
+      <label class="field-row">
+        <text class="field-label">口味</text>
+        <input
+          class="text-input {{fieldErrors.flavor ? 'text-input--error' : ''}}"
+          maxlength="17"
+          value="{{flavorInput}}"
+          placeholder="例如：酸甜"
+          placeholder-class="input-placeholder"
+          aria-label="菜谱口味"
+          data-field="flavor"
+          bindinput="onBasicInput"
+        />
+        <text wx:if="{{fieldErrors.flavor}}" class="field-error" aria-role="alert">{{fieldErrors.flavor}}</text>
+      </label>
+
+      <view class="field-pair">
+        <label class="field-row field-row--half">
+          <text class="field-label">份量</text>
+          <input
+            class="text-input {{fieldErrors.servings ? 'text-input--error' : ''}}"
+            type="number"
+            value="{{servingsInput}}"
+            placeholder="2"
+            placeholder-class="input-placeholder"
+            aria-label="菜谱份量"
+            data-field="servings"
+            bindinput="onBasicInput"
+          />
+          <text wx:if="{{fieldErrors.servings}}" class="field-error" aria-role="alert">{{fieldErrors.servings}}</text>
+        </label>
+        <label class="field-row field-row--half">
+          <text class="field-label">预计分钟</text>
+          <input
+            class="text-input {{fieldErrors.estimatedMinutes ? 'text-input--error' : ''}}"
+            type="number"
+            value="{{estimatedMinutesInput}}"
+            placeholder="15"
+            placeholder-class="input-placeholder"
+            aria-label="预计分钟"
+            data-field="estimatedMinutes"
+            bindinput="onBasicInput"
+          />
+          <text wx:if="{{fieldErrors.estimatedMinutes}}" class="field-error" aria-role="alert">{{fieldErrors.estimatedMinutes}}</text>
+        </label>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeStep === 'INGREDIENTS'}}" class="editor-section">
+      <view class="section-heading">
+        <text class="section-title">食材</text>
+        <text class="section-copy">数量留空表示适量；至少保留一种必需食材</text>
+      </view>
+
+      <scroll-view wx:if="{{ingredientCatalog.length}}" class="catalog-strip" scroll-x enhanced>
+        <button
+          wx:for="{{ingredientCatalog}}"
+          wx:key="id"
+          class="catalog-add"
+          data-id="{{item.id}}"
+          data-name="{{item.name}}"
+          data-unit="{{item.defaultUnit}}"
+          bindtap="onAddIngredient"
+        >+ {{item.name}}</button>
+      </scroll-view>
+
+      <view wx:if="{{!editorIngredients.length}}" class="empty-state">
+        <text class="empty-title">还没有添加食材</text>
+        <text class="empty-copy">从上方目录选择食材，数量可以留空为“适量”</text>
+      </view>
+
+      <view wx:else class="divider-list">
+        <view
+          wx:for="{{editorIngredients}}"
+          wx:key="clientKey"
+          class="ingredient-row"
+        >
+          <view class="ingredient-heading">
+            <text class="ingredient-name">{{item.name}}</text>
+            <button
+              class="row-action"
+              aria-label="移除{{item.name}}"
+              data-id="{{item.ingredientId}}"
+              bindtap="onRemoveIngredient"
+            >移除</button>
+          </view>
+          <view class="ingredient-controls">
+            <input
+              class="quantity-input"
+              type="digit"
+              value="{{item.quantityInput}}"
+              placeholder="适量"
+              placeholder-class="input-placeholder"
+              aria-label="{{item.name}}数量，留空为适量"
+              data-id="{{item.ingredientId}}"
+              bindinput="onIngredientQuantityInput"
+            />
+            <input
+              class="unit-input"
+              value="{{item.unit}}"
+              maxlength="17"
+              aria-label="{{item.name}}单位"
+              data-id="{{item.ingredientId}}"
+              bindinput="onIngredientUnitInput"
+            />
+            <button
+              class="required-toggle {{item.required ? 'required-toggle--active' : ''}}"
+              aria-label="{{item.name}}{{item.required ? '是必需食材' : '不是必需食材'}}"
+              aria-checked="{{item.required}}"
+              data-id="{{item.ingredientId}}"
+              bindtap="onToggleIngredientRequired"
+            >{{item.required ? '必需' : '可选'}}</button>
+          </view>
+          <text
+            wx:if="{{item.quantityError}}"
+            class="field-error"
+            aria-role="alert"
+          >{{item.quantityError}}</text>
+          <text
+            wx:if="{{item.unitError}}"
+            class="field-error"
+            aria-role="alert"
+          >{{item.unitError}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeStep === 'METHOD'}}" class="editor-section">
+      <view class="section-heading">
+        <text class="section-title">默认做法</text>
+        <text class="section-copy">按顺序写下做菜步骤</text>
+      </view>
+
+      <label class="field-row">
+        <text class="field-label">做法名称（可选）</text>
+        <input
+          class="text-input"
+          value="{{methodNameInput}}"
+          placeholder="例如：家常做法"
+          placeholder-class="input-placeholder"
+          aria-label="做法名称"
+          bindinput="onMethodNameInput"
+        />
+      </label>
+      <label class="field-row">
+        <text class="field-label">烹饪方式（可选）</text>
+        <input
+          class="text-input"
+          value="{{cookingStyleInput}}"
+          placeholder="例如：炒"
+          placeholder-class="input-placeholder"
+          aria-label="烹饪方式"
+          bindinput="onCookingStyleInput"
+        />
+      </label>
+
+      <view wx:if="{{!methodStepRows.length}}" class="empty-state">
+        <text class="empty-title">还没有做法步骤</text>
+        <text class="empty-copy">添加第一步，把关键动作写清楚</text>
+      </view>
+
+      <view wx:else class="divider-list">
+        <view wx:for="{{methodStepRows}}" wx:key="clientKey" class="method-row">
+          <view class="method-index">{{index + 1}}</view>
+          <textarea
+            class="method-input"
+            auto-height
+            maxlength="161"
+            value="{{item.instruction}}"
+            placeholder="填写这一步怎么做"
+            placeholder-class="input-placeholder"
+            aria-label="第{{index + 1}}步做法"
+            data-index="{{index}}"
+            bindinput="onMethodStepInput"
+          ></textarea>
+          <view class="method-actions">
+            <button
+              class="row-action"
+              disabled="{{index === 0}}"
+              aria-label="第{{index + 1}}步上移"
+              data-index="{{index}}"
+              bindtap="onMoveStepUp"
+            >上移</button>
+            <button
+              class="row-action"
+              disabled="{{index === methodStepRows.length - 1}}"
+              aria-label="第{{index + 1}}步下移"
+              data-index="{{index}}"
+              bindtap="onMoveStepDown"
+            >下移</button>
+            <button
+              class="row-action row-action--danger"
+              aria-label="删除第{{index + 1}}步"
+              data-index="{{index}}"
+              bindtap="onRemoveMethodStep"
+            >删除</button>
+          </view>
+          <text wx:if="{{item.errorMessage}}" class="field-error" aria-role="alert">
+            {{item.errorMessage}}
+          </text>
+        </view>
+      </view>
+      <button
+        class="add-step-button"
+        disabled="{{methodStepRows.length >= 12}}"
+        bindtap="onAddMethodStep"
+      >＋ 添加步骤</button>
+    </view>
+
+    <view wx:elif="{{activeStep === 'IMAGE'}}" class="editor-section">
+      <view class="section-heading">
+        <text class="section-title">真实图片</text>
+        <text class="section-copy">只可选择平台已审核且许可清晰的菜品图片</text>
+      </view>
+      <view wx:if="{{selectedImage}}" class="selected-image">
+        <image
+          class="selected-image__photo"
+          src="{{selectedImage.detailUrl}}"
+          mode="aspectFill"
+          aria-label="{{selectedImage.displayName}}"
+        />
+        <text class="selected-image__name">{{selectedImage.displayName}}</text>
+        <view class="provenance-row"><text>作者</text><text>{{selectedImage.author}}</text></view>
+        <view class="provenance-row"><text>许可</text><text>{{selectedImage.licenseName}}</text></view>
+        <view class="provenance-row"><text>获取日期</text><text>{{selectedImage.acquiredOn}}</text></view>
+      </view>
+      <view wx:else class="empty-state">
+        <text class="empty-title">还没有选择图片</text>
+        <text class="empty-copy">图库不会提供上传或拍照入口</text>
+      </view>
+      <button class="choose-image-button" bindtap="onChooseImage">
+        {{selectedImage ? '重新选择图片' : '从已审核图库选择'}}
+      </button>
+    </view>
+
+    <view wx:else class="editor-section preview-section">
+      <view class="section-heading">
+        <text class="section-title">发布预览</text>
+        <text class="section-copy">发布前再检查一次家庭成员会看到的内容</text>
+      </view>
+
+      <view wx:if="{{publishIssues.length}}" class="issue-list" aria-live="polite">
+        <text class="issue-title">还有这些内容需要完善</text>
+        <button
+          wx:for="{{publishIssues}}"
+          wx:key="field"
+          class="issue-row"
+          aria-label="{{item.message}}，前往{{item.step}}步骤"
+          data-step="{{item.step}}"
+          bindtap="onJumpToIssue"
+        >
+          <text>{{item.message}}</text><text>去修改</text>
+        </button>
+      </view>
+
+      <image
+        wx:if="{{selectedImage}}"
+        class="preview-photo"
+        src="{{selectedImage.detailUrl}}"
+        mode="aspectFill"
+        aria-label="{{selectedImage.displayName}}"
+      />
+      <view wx:else class="preview-photo preview-photo--empty">未选择图片</view>
+      <text class="preview-name">{{nameInput || '未命名菜谱'}}</text>
+      <text class="preview-facts">{{categoryInput || '未填写分类'}} · {{flavorInput || '未填写口味'}}</text>
+      <text class="preview-facts">{{servingsInput || '未填写'}} 人份 · {{estimatedMinutesInput || '未填写'}} 分钟</text>
+
+      <view class="preview-group">
+        <text class="preview-group__title">食材</text>
+        <view wx:for="{{editorIngredients}}" wx:key="clientKey" class="preview-row">
+          <text>{{item.name}}</text>
+          <text>{{item.quantityInput ? item.quantityInput + item.unit : '适量'}}</text>
+        </view>
+        <text wx:if="{{!editorIngredients.length}}" class="preview-empty">未添加食材</text>
+      </view>
+
+      <view class="preview-group">
+        <text class="preview-group__title">做法</text>
+        <view wx:for="{{methodStepRows}}" wx:key="clientKey" class="preview-row">
+          <text>{{index + 1}}.</text><text class="preview-instruction">{{item.instruction || '未填写步骤'}}</text>
+        </view>
+        <text wx:if="{{!methodStepRows.length}}" class="preview-empty">未添加做法</text>
+      </view>
+    </view>
+  </block>
+</view>
+
+<view wx:if="{{draft && !loading && !loadErrorMessage && !readOnly}}" class="action-bar">
+  <button
+    class="action-button action-button--secondary"
+    disabled="{{navigationPending || publishing}}"
+    bindtap="onPreviousStep"
+  >{{activeStep === 'BASIC' ? '返回' : '上一步'}}</button>
+  <button
+    wx:if="{{activeStep !== 'PREVIEW'}}"
+    class="action-button action-button--primary"
+    disabled="{{navigationPending || publishing}}"
+    bindtap="onNextStep"
+  >{{navigationPending ? '保存中' : '下一步'}}</button>
+  <button
+    wx:else
+    class="action-button action-button--primary"
+    loading="{{publishing}}"
+    disabled="{{publishing}}"
+    bindtap="onPublish"
+  >{{publishing ? '发布中' : '发布菜谱'}}</button>
+</view>

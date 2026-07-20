@@ -8,6 +8,8 @@
     "pages/tonight/index",
     "pages/recipes/index",
     "pages/family-recipes/index",
+    "pages/recipe-editor/index",
+    "pages/recipe-images/index",
     "pages/ingredients/index",
     "pages/records/index",
     "pages/record-detail/index",

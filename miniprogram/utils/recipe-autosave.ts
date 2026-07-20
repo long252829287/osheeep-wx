@@ -39,6 +39,7 @@ export const createRecipeAutosave = <T>(
   let disposed = false;
 
   const setState = (next: RecipeAutosaveState): void => {
+    if (currentState === next) return;
     currentState = next;
     try {
       options.onState(next);
@@ -65,11 +66,31 @@ export const createRecipeAutosave = <T>(
   const scheduleTimer = (): void => {
     if (disposed || inFlight || currentState === 'conflict') return;
     clearTimer();
-    setState('scheduled');
-    timer = setTimeout(() => {
+    const scheduledTimer = setTimeout(() => {
+      if (timer !== scheduledTimer) return;
       timer = undefined;
       void startSave().catch(() => undefined);
     }, delayMs);
+    timer = scheduledTimer;
+    setState('scheduled');
+  };
+
+  const validVersion = (version: number | undefined): version is number =>
+    typeof version === 'number' && Number.isFinite(version) && version >= 1;
+
+  const expectedVersion = (): number => {
+    try {
+      const sharedVersion = options.getVersion();
+      if (validVersion(sharedVersion) && validVersion(serverVersion)) {
+        return Math.max(sharedVersion, serverVersion);
+      }
+      if (validVersion(sharedVersion)) return sharedVersion;
+      if (validVersion(serverVersion)) return serverVersion;
+      throw new Error('Recipe version is unavailable');
+    } catch (error) {
+      if (validVersion(serverVersion)) return serverVersion;
+      throw error;
+    }
   };
 
   const startSave = (): Promise<void> => {
@@ -87,13 +108,14 @@ export const createRecipeAutosave = <T>(
     let saveSucceeded = false;
     const promise = Promise.resolve()
       .then(() => {
-        const expectedVersion = serverVersion ?? options.getVersion();
-        return options.save(value, expectedVersion);
+        return options.save(value, expectedVersion());
       })
       .then((result) => {
         if (disposed) return;
         savedGeneration = generation;
-        serverVersion = result.version;
+        serverVersion = validVersion(serverVersion)
+          ? Math.max(serverVersion, result.version)
+          : result.version;
         lastError = undefined;
         saveSucceeded = true;
         notifyVersion(result.version);

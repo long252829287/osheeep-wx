@@ -309,3 +309,90 @@ test('concurrent flush and retry share one in-flight save', async () => {
   expect(save).toHaveBeenCalledTimes(1);
   expect(autosave.state()).toBe('saved');
 });
+
+test('shared step autosaves always use the newest page version', async () => {
+  let pageVersion = 1;
+  const basicSave = jest
+    .fn()
+    .mockResolvedValueOnce({ version: 2 })
+    .mockResolvedValueOnce({ version: 4 });
+  const ingredientSave = jest.fn().mockResolvedValueOnce({ version: 3 });
+  const onVersion = (next: number) => {
+    pageVersion = next;
+  };
+  const basicAutosave = createRecipeAutosave<string>({
+    getVersion: () => pageVersion,
+    save: basicSave,
+    onVersion,
+    onState: jest.fn(),
+  });
+  const ingredientAutosave = createRecipeAutosave<string>({
+    getVersion: () => pageVersion,
+    save: ingredientSave,
+    onVersion,
+    onState: jest.fn(),
+  });
+
+  basicAutosave.schedule('basic v1');
+  await basicAutosave.flush();
+  ingredientAutosave.schedule('ingredients v2');
+  await ingredientAutosave.flush();
+  basicAutosave.schedule('basic v3');
+  await basicAutosave.flush();
+
+  expect(basicSave).toHaveBeenNthCalledWith(1, 'basic v1', 1);
+  expect(ingredientSave).toHaveBeenCalledWith('ingredients v2', 2);
+  expect(basicSave).toHaveBeenNthCalledWith(2, 'basic v3', 3);
+});
+
+test('uses the internal version only when the shared version hook throws', async () => {
+  let calls = 0;
+  const save = jest
+    .fn()
+    .mockResolvedValueOnce({ version: 2 })
+    .mockResolvedValueOnce({ version: 3 });
+  const autosave = createRecipeAutosave<string>({
+    getVersion: () => {
+      calls += 1;
+      if (calls === 1) return 1;
+      throw new Error('page version observer failed');
+    },
+    save,
+    onVersion: () => {
+      throw new Error('page version update failed');
+    },
+    onState: jest.fn(),
+  });
+
+  autosave.schedule('first');
+  await autosave.flush();
+  autosave.schedule('second');
+  await autosave.flush();
+
+  expect(save).toHaveBeenNthCalledWith(1, 'first', 1);
+  expect(save).toHaveBeenNthCalledWith(2, 'second', 2);
+});
+
+test('scheduled observer reentry retains no timer after flush and dispose', async () => {
+  jest.useFakeTimers();
+  const autosave: ReturnType<typeof createRecipeAutosave<string>> =
+    createRecipeAutosave<string>({
+      getVersion: () => 1,
+      save: jest.fn().mockResolvedValue({ version: 2 }),
+      onVersion: jest.fn(),
+      onState: (state) => {
+        if (state === 'scheduled' && !reentered) {
+          reentered = true;
+          autosave.schedule('observer edit');
+        }
+      },
+    });
+  let reentered = false;
+
+  autosave.schedule('initial edit');
+  await autosave.flush();
+  autosave.dispose();
+
+  expect(jest.getTimerCount()).toBe(0);
+  expect(autosave.state()).toBe('idle');
+});

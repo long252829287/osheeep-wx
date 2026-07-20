@@ -1,4 +1,4 @@
-import { createRuntimeConfig } from './config/environment';
+import { createRuntimeConfig } from './config/runtime-config';
 import { createAuthService, type LoginPort } from './services/auth-service';
 import { createAccountService } from './services/account-service';
 import { createHouseholdService } from './services/household-service';

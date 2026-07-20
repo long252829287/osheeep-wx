@@ -35,11 +35,24 @@ export const createRecipeAutosave = <T>(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let inFlight: Promise<void> | undefined;
   let lastError: unknown;
+  let serverVersion: number | undefined;
   let disposed = false;
 
   const setState = (next: RecipeAutosaveState): void => {
     currentState = next;
-    options.onState(next);
+    try {
+      options.onState(next);
+    } catch {
+      // State observers must not affect persistence.
+    }
+  };
+
+  const notifyVersion = (nextVersion: number): void => {
+    try {
+      options.onVersion(nextVersion);
+    } catch {
+      // Version observers must not affect persistence.
+    }
   };
 
   const clearTimer = (): void => {
@@ -71,22 +84,25 @@ export const createRecipeAutosave = <T>(
 
     const value = latest;
     const generation = latestGeneration;
-    const expectedVersion = options.getVersion();
     let saveSucceeded = false;
-    setState('saving');
-    const promise = options
-      .save(value, expectedVersion)
+    const promise = Promise.resolve()
+      .then(() => {
+        const expectedVersion = serverVersion ?? options.getVersion();
+        return options.save(value, expectedVersion);
+      })
       .then((result) => {
         if (disposed) return;
         savedGeneration = generation;
+        serverVersion = result.version;
         lastError = undefined;
         saveSucceeded = true;
-        options.onVersion(result.version);
+        notifyVersion(result.version);
         setState('saved');
       })
       .catch((error: unknown) => {
         if (!disposed) {
           lastError = error;
+          if (isVersionConflict(error)) serverVersion = undefined;
           setState(isVersionConflict(error) ? 'conflict' : 'error');
         }
         throw error;
@@ -103,6 +119,7 @@ export const createRecipeAutosave = <T>(
         }
       });
     inFlight = promise;
+    setState('saving');
     return promise;
   };
 
@@ -136,12 +153,16 @@ export const createRecipeAutosave = <T>(
     },
     retry: (): Promise<void> => {
       if (disposed || latest === undefined) return Promise.resolve();
-      clearTimer();
-      lastError = undefined;
-      if (currentState === 'conflict' || currentState === 'error')
-        setState('idle');
-      if (!inFlight) return flushLatest();
-      return inFlight.then(flushLatest);
+      const retryLatest = (): Promise<void> => {
+        clearTimer();
+        lastError = undefined;
+        if (currentState === 'conflict' || currentState === 'error') {
+          setState('idle');
+        }
+        return flushLatest();
+      };
+      if (!inFlight) return retryLatest();
+      return inFlight.then(retryLatest, retryLatest);
     },
     dispose: (): void => {
       if (disposed) return;

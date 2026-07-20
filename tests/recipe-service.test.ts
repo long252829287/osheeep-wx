@@ -47,17 +47,43 @@ test('maps every custom recipe endpoint without changing discovery', async () =>
   expect(request).toHaveBeenNthCalledWith(
     5,
     '/api/dinner/recipes/9/basic-info',
-    expect.objectContaining({ method: 'PUT' }),
+    {
+      method: 'PUT',
+      data: {
+        version: 1,
+        name: '番茄炒蛋',
+        category: '家常菜',
+        flavor: '酸甜',
+        servings: 2,
+        estimatedMinutes: 15,
+      },
+    },
   );
   expect(request).toHaveBeenNthCalledWith(
     6,
     '/api/dinner/recipes/9/ingredients',
-    expect.objectContaining({ method: 'PUT' }),
+    {
+      method: 'PUT',
+      data: {
+        version: 2,
+        ingredients: [
+          { ingredientId: 1, quantity: null, unit: '克', required: true },
+        ],
+      },
+    },
   );
   expect(request).toHaveBeenNthCalledWith(
     7,
     '/api/dinner/recipes/9/default-method',
-    expect.objectContaining({ method: 'PUT' }),
+    {
+      method: 'PUT',
+      data: {
+        version: 3,
+        name: '家常炒',
+        cookingStyle: '炒',
+        steps: [{ instruction: '切番茄' }],
+      },
+    },
   );
   expect(request).toHaveBeenNthCalledWith(8, '/api/dinner/recipes/9/image', {
     method: 'PUT',

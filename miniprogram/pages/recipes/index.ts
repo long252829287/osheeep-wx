@@ -113,7 +113,9 @@ const filterIngredients = (
   for (const item of inventory) names.set(item.ingredientId, item.name);
   for (const recipe of recipes) {
     for (const ingredient of recipe.ingredients) {
-      names.set(ingredient.ingredientId, ingredient.name);
+      if (ingredient.ingredientId !== null && ingredient.name !== null) {
+        names.set(ingredient.ingredientId, ingredient.name);
+      }
     }
   }
   const include = new Set(includeIds);

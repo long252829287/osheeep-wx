@@ -136,7 +136,7 @@ test('preserves structured failure details on ApiError', async () => {
         statusCode: 422,
         data: {
           success: false,
-          errorCode: 'DINNER_RECIPE_INCOMPLETE',
+          errorCode: 'DINNER_RECIPE_VALIDATION_FAILED',
           message: '菜谱信息不完整',
           data: details,
           requestId: 'r-details',
@@ -151,7 +151,7 @@ test('preserves structured failure details on ApiError', async () => {
 
   await expect(client.request('/api/dinner/recipes/9/publish')).rejects.toEqual(
     expect.objectContaining({
-      errorCode: 'DINNER_RECIPE_INCOMPLETE',
+      errorCode: 'DINNER_RECIPE_VALIDATION_FAILED',
       details,
       requestId: 'r-details',
     }),

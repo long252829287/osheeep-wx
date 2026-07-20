@@ -1,8 +1,8 @@
 export interface RecipeIngredient {
-  ingredientId: number;
-  name: string;
-  quantity?: number | null;
-  unit: string;
+  ingredientId: number | null;
+  name: string | null;
+  quantity: number | null;
+  unit: string | null;
   required: boolean;
   sortOrder: number;
 }
@@ -41,19 +41,19 @@ export type RecipeStep =
 export interface FamilyRecipeListItem {
   id: number;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-  name?: string | null;
-  imageUrl?: string;
-  category?: string | null;
-  flavor?: string | null;
-  servings?: number | null;
-  estimatedMinutes?: number | null;
+  name: string | null;
+  imageUrl: string | null;
+  category: string | null;
+  flavor: string | null;
+  servings: number | null;
+  estimatedMinutes: number | null;
   version: number;
-  creatorId: number;
-  creatorName: string;
-  lastModifiedBy: number;
-  lastModifiedByName: string;
+  creatorId: number | null;
+  creatorName: string | null;
+  lastModifiedBy: number | null;
+  lastModifiedByName: string | null;
   completedStep: RecipeStep;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
 export interface RecipeImageAsset {
@@ -76,24 +76,24 @@ export interface RecipeMethodStepDraft {
 }
 
 export interface RecipeMethodDraft {
-  id?: number;
-  name?: string | null;
-  cookingStyle?: string | null;
-  steps: RecipeMethodStepDraft[];
+  id: number;
+  name: string | null;
+  cookingStyle: string | null;
+  steps: RecipeMethodStepDraft[] | null;
 }
 
 export interface RecipeDraft {
   id: number;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   version: number;
-  name?: string | null;
-  category?: string | null;
-  flavor?: string | null;
-  servings?: number | null;
-  estimatedMinutes?: number | null;
+  name: string | null;
+  category: string | null;
+  flavor: string | null;
+  servings: number | null;
+  estimatedMinutes: number | null;
   ingredients: RecipeIngredient[];
-  defaultMethod?: RecipeMethodDraft;
-  image?: RecipeImageAsset | null;
+  defaultMethod: RecipeMethodDraft | null;
+  image: RecipeImageAsset | null;
   incompleteSteps: RecipeStep[];
   updatedAt: string | null;
 }

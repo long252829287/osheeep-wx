@@ -1942,7 +1942,7 @@ git commit -m "feat: create and publish household recipes"
 - Proves: frontend full suite/static checks and 375/390/430 native simulator QA.
 - Produces an accurate continuation point without claiming deployment or upload.
 
-- [ ] **Step 1: Write the isolated MySQL integration test with two safety gates**
+- [x] **Step 1: Write the isolated MySQL integration test with two safety gates**
 
 The test must abort unless both conditions hold: `OSHEEEP_DB_TEST_NAME` is nonblank, and the active JDBC catalog equals that exact value.
 
@@ -1959,7 +1959,7 @@ void requireDedicatedTestDatabase() {
 
 The test seeds two users, identities, one active household and two memberships; creates a draft through service/API, saves basic info, one quantity-null ingredient, one default method, selects the seeded approved asset, injects a passing `RecipeTextSafetyGateway`, publishes, and asserts both users list the same `PUBLISHED` recipe. Cleanup deletes in foreign-key order and leaves system recipes/assets intact.
 
-- [ ] **Step 2: Run the real MySQL 8 integration test**
+- [x] **Step 2: Run the real MySQL 8 integration test**
 
 Use an isolated MySQL 8 container or the dedicated local test database only:
 
@@ -1976,7 +1976,9 @@ mvn test -Dtest=DinnerCustomRecipeMySqlIT -Dspring.profiles.active=local
 
 Expected: Flyway applies V1–V6, the integration test PASSes, and the test logs name the dedicated test catalog without printing credentials.
 
-- [ ] **Step 3: Run complete backend and frontend verification**
+Measured result on 2026-07-20: the final guarded run passed 1/1 on MySQL 8 with the dedicated test catalog. That catalog was already current at Flyway V6 during the final run; an earlier bootstrap run began at V4 and applied V5/V6. This is not a fresh V1–V6 or production migration claim.
+
+- [x] **Step 3: Run complete backend and frontend verification**
 
 Backend:
 
@@ -2001,6 +2003,8 @@ git diff --check
 
 Expected: all commands exit 0 with no failures or formatting warnings.
 
+Measured result on 2026-07-20: backend 273/273; frontend 31 suites and 307/307; typecheck, lint, format check and both repositories' diff checks exited 0.
+
 - [ ] **Step 4: Run native WeChat design and interaction QA**
 
 Start the isolated backend/database, log in with authorized development accounts, and verify:
@@ -2015,7 +2019,9 @@ Start the isolated backend/database, log in with authorized development accounts
 
 Capture 375, 390 and 430px screenshots listed above. At 390px, combine each implementation screenshot with its Task 8 source under identical state/viewport. Fix all P0/P1/P2 findings before marking QA passed.
 
-- [ ] **Step 5: Update API, plan, handoff and QA report with measured facts**
+Partial result on 2026-07-20: create/reopen, autosave, page-hide flush, quantity-null “适量”, native step reorder, approved image provenance, moderation-unavailable recovery and 375/390/430 visual QA passed. A 430px native button row regression was fixed by `a513df5`; independent review found no remaining P0/P1/P2. The real publish call returned HTTP 503 and the session had only one authorized account, so successful native publication and two-account visibility remain unverified. Deterministic tests cover rejected/unavailable/409 recovery, and the guarded MySQL integration test covers successful two-user API visibility; those are not substitutes for the missing native evidence.
+
+- [x] **Step 5: Update API, plan, handoff and QA report with measured facts**
 
 Document exact endpoints, version semantics, structured validation data, image provenance, moderation failure codes and the fact that `openid` must represent a user active in the mini program. Record actual test counts and MySQL evidence. State explicitly:
 
@@ -2024,7 +2030,7 @@ Document exact endpoints, version semantics, structured validation data, image p
 - One verified real photo enables the vertical slice; replacing all eight existing system recipe images remains outstanding.
 - Family recipe discovery/menu integration, edit drafts, variants, copy and archive remain outside this vertical slice.
 
-- [ ] **Step 6: Commit backend integration/contracts**
+- [x] **Step 6: Commit backend integration/contracts**
 
 ```bash
 cd ../osheeep-server
@@ -2032,7 +2038,7 @@ git add src/test/java/com/osheeep/server/dinner/recipe/DinnerCustomRecipeMySqlIT
 git commit -m "test: verify custom recipe vertical slice"
 ```
 
-- [ ] **Step 7: Commit frontend QA and handoff**
+- [x] **Step 7: Commit frontend QA and handoff**
 
 ```bash
 cd ../osheeep-wx
@@ -2040,7 +2046,7 @@ git add docs/superpowers/plans/2026-07-16-household-custom-recipes-vertical-slic
 git commit -m "docs: verify custom recipe vertical slice"
 ```
 
-- [ ] **Step 8: Verify final repository state**
+- [x] **Step 8: Verify final repository state**
 
 Run in both repositories:
 

@@ -54,6 +54,21 @@ test('declares the household ingredient inventory page', () => {
   ).toBe(true);
 });
 
+test('declares the household recipe list as a native page route', () => {
+  const app = JSON.parse(
+    readFileSync(resolve(root, 'miniprogram/app.json'), 'utf8'),
+  ) as { pages?: string[] };
+
+  expect(app.pages).toContain('pages/family-recipes/index');
+  for (const extension of ['json', 'ts', 'wxml', 'wxss']) {
+    expect(
+      existsSync(
+        resolve(root, `miniprogram/pages/family-recipes/index.${extension}`),
+      ),
+    ).toBe(true);
+  }
+});
+
 test('declares a valid default sitemap rule for upload', () => {
   const sitemap = JSON.parse(
     readFileSync(resolve(root, 'miniprogram/sitemap.json'), 'utf8'),

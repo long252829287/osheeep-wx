@@ -483,7 +483,7 @@ Page({
   },
 
   onOpenHouseholdRecipes() {
-    wx.showToast({ title: '家庭菜谱暂未开放', icon: 'none' });
+    wx.navigateTo({ url: '/pages/family-recipes/index' });
   },
 
   onOpenIngredients() {

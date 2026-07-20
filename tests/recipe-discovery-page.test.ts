@@ -895,7 +895,7 @@ test.each([
   },
 );
 
-test('opens inventory and gives an honest household-recipes unavailable message', async () => {
+test('opens inventory and the household recipe list', async () => {
   const definition = await loadRecipePage();
   const instance = createInstance(definition);
 
@@ -905,8 +905,10 @@ test('opens inventory and gives an honest household-recipes unavailable message'
   expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
     url: '/pages/ingredients/index',
   });
-  expect(runtime.wx?.showToast).toHaveBeenCalledWith({
-    title: '家庭菜谱暂未开放',
-    icon: 'none',
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith({
+    url: '/pages/family-recipes/index',
   });
+  expect(runtime.wx?.showToast).not.toHaveBeenCalledWith(
+    expect.objectContaining({ title: '家庭菜谱暂未开放' }),
+  );
 });

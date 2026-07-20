@@ -143,6 +143,7 @@ interface EditorRuntime {
   writesDisabled: boolean;
   conflictedStep: EditableRecipeStep | null;
   failedStep: EditableRecipeStep | null;
+  publishConflictRebasedStep: EditableRecipeStep | null;
   nextClientKey: number;
 }
 
@@ -192,6 +193,7 @@ const runtimeFor = (page: object): EditorRuntime => {
     writesDisabled: false,
     conflictedStep: null,
     failedStep: null,
+    publishConflictRebasedStep: null,
     nextClientKey: 1,
   };
   pageRuntimes.set(page, created);
@@ -759,6 +761,7 @@ const markAccessLost = (page: EditorPageContext, error: unknown): void => {
   if (!accessWasLost(error)) return;
   const runtime = runtimeFor(page);
   runtime.writesDisabled = true;
+  runtime.publishConflictRebasedStep = null;
   disposeAutosaves(runtime);
   if (canSetData(page)) {
     page.setData({
@@ -821,6 +824,20 @@ const createStepAutosaves = (page: EditorPageContext): AutosaveBundle => {
   const stateObserver =
     (step: EditableRecipeStep) => (state: RecipeAutosaveState) => {
       const runtime = runtimeFor(page);
+      if (
+        state === 'saved' &&
+        runtime.publishConflictRebasedStep === step &&
+        page.data.publishConflictRecoveryAvailable &&
+        runtime.autosaves?.[step] &&
+        !runtime.autosaves[step].dirty() &&
+        canSetData(page)
+      ) {
+        runtime.publishConflictRebasedStep = null;
+        page.setData({
+          publishConflictRecoveryAvailable: false,
+          publishErrorMessage: '草稿已同步，请再次确认发布',
+        });
+      }
       if (state === 'error' || state === 'conflict') {
         if (runtime.failedStep && runtime.failedStep !== step) return;
         runtime.failedStep = step;
@@ -1028,6 +1045,7 @@ const hydrateDraft = (
   runtime.writesDisabled = readOnly;
   runtime.conflictedStep = null;
   runtime.failedStep = null;
+  runtime.publishConflictRebasedStep = null;
   runtime.publishedDraft = readOnly ? draft : null;
   runtime.pendingRedirect = false;
   page.setData({
@@ -1134,6 +1152,7 @@ const refreshCanonicalVersion = (
           mergeCanonicalControls(page, draft, true);
         }
         runtime.writesDisabled = true;
+        runtime.publishConflictRebasedStep = null;
         disposeAutosaves(runtime);
         page.setData({
           readOnly: true,
@@ -1361,6 +1380,7 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
     runtime.publishedDraft = published;
     runtime.pendingRedirect = true;
     runtime.writesDisabled = true;
+    runtime.publishConflictRebasedStep = null;
     disposeAutosaves(runtime);
     page.setData({
       draft: published,
@@ -1395,6 +1415,7 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
     }
     const publishConflict =
       errorCodeOf(error) === 'DINNER_RECIPE_VERSION_CONFLICT';
+    runtime.publishConflictRebasedStep = null;
     page.setData({
       publishErrorMessage: publishErrorMessage(error),
       publishConflictRecoveryAvailable: publishConflict,
@@ -1904,12 +1925,16 @@ Page({
       runtime.failedStep ??
       (isEditableStep(this.data.activeStep) ? this.data.activeStep : null);
     if (!step || !runtime.autosaves) return;
-    if (runtime.autosaves[step].state() === 'conflict') {
+    const autosave = runtime.autosaves[step];
+    if (autosave.state() === 'conflict') {
       const refreshed = await refreshConflictVersion(this);
       if (!refreshed || !runtime.autosaves) return;
+      if (this.data.publishConflictRecoveryAvailable) {
+        runtime.publishConflictRebasedStep = step;
+      }
     }
     try {
-      await runtime.autosaves[step].retry();
+      await autosave.retry();
     } catch (error) {
       saveFailureState(this, error);
     }
@@ -1940,6 +1965,7 @@ Page({
     const operation = refreshCanonicalVersion(this, '刷新草稿失败，请稍后重试')
       .then((refreshed) => {
         if (!refreshed || !canSetData(this)) return;
+        runtime.publishConflictRebasedStep = null;
         this.setData({
           publishConflictRecoveryAvailable: false,
           publishErrorMessage: '已刷新最新草稿，请确认后再次发布',

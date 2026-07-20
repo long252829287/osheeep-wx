@@ -1534,6 +1534,229 @@ test('publish conflict recovery stays visible after leaving and returning to pre
   expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(1);
 });
 
+test('successful autosave conflict retry releases the publish recovery gate for a later explicit publish', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(completeDraft(9, 9));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 10),
+      name: '冲突后的本地菜名',
+    });
+  app.publishRecipe
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 11),
+      name: '冲突后的本地菜名',
+      status: 'PUBLISHED',
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+  await page.onSelectStep(touchEvent({ step: 'BASIC' }));
+  page.onBasicInput(inputEvent('冲突后的本地菜名', { field: 'name' }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  expect(page.data.saveState).toBe('conflict');
+  await page.onRetrySave();
+
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+  expect(app.saveRecipeBasicInfo).toHaveBeenNthCalledWith(
+    2,
+    9,
+    expect.objectContaining({ version: 9, name: '冲突后的本地菜名' }),
+  );
+  expect(page.data.version).toBe(10);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(page.data.publishErrorMessage).toBe('草稿已同步，请再次确认发布');
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+
+  await page.onSelectStep(touchEvent({ step: 'PREVIEW' }));
+  await page.onPublish();
+
+  expect(app.publishRecipe).toHaveBeenNthCalledWith(2, 9, 10);
+  expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(1);
+});
+
+test('failed autosave retry keeps the publish recovery gate and never republishes', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(completeDraft(9, 9));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockRejectedValueOnce(new Error('offline'));
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+  await page.onSelectStep(touchEvent({ step: 'BASIC' }));
+  page.onBasicInput(inputEvent('仍待保存的本地菜名', { field: 'name' }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  await page.onRetrySave();
+
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(2);
+  expect(page.data.saveState).toBe('error');
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+});
+
+test('a later successful autosave retry releases the gate after the first retry failed', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(completeDraft(9, 9));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 10),
+      name: '最终保存的本地菜名',
+    });
+  app.publishRecipe
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 11),
+      name: '最终保存的本地菜名',
+      status: 'PUBLISHED',
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+  await page.onSelectStep(touchEvent({ step: 'BASIC' }));
+  page.onBasicInput(inputEvent('最终保存的本地菜名', { field: 'name' }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  await page.onRetrySave();
+  expect(page.data.saveState).toBe('error');
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+
+  await page.onRetrySave();
+
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(3);
+  expect(page.data.version).toBe(10);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(page.data.publishErrorMessage).toBe('草稿已同步，请再次确认发布');
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+
+  await page.onSelectStep(touchEvent({ step: 'PREVIEW' }));
+  await page.onPublish();
+  expect(app.publishRecipe).toHaveBeenNthCalledWith(2, 9, 10);
+});
+
+test('the final clean autosave releases the gate after input arrives during retry', async () => {
+  const firstRetry = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(completeDraft(9, 9));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockReturnValueOnce(firstRetry.promise)
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 11),
+      name: 'retry 期间的新输入',
+    });
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+  await page.onSelectStep(touchEvent({ step: 'BASIC' }));
+  page.onBasicInput(inputEvent('第一次本地输入', { field: 'name' }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  const retrying = page.onRetrySave();
+  await flushMicrotasks();
+  await flushMicrotasks();
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(2);
+  page.onBasicInput(inputEvent('retry 期间的新输入', { field: 'name' }));
+  firstRetry.resolve({
+    ...completeDraft(9, 10),
+    name: '第一次本地输入',
+  });
+  await retrying;
+
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  await jest.advanceTimersByTimeAsync(800);
+  await flushMicrotasks();
+
+  expect(app.saveRecipeBasicInfo).toHaveBeenNthCalledWith(
+    3,
+    9,
+    expect.objectContaining({ version: 10, name: 'retry 期间的新输入' }),
+  );
+  expect(page.data.version).toBe(11);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(page.data.publishErrorMessage).toBe('草稿已同步，请再次确认发布');
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  ['the same version', completeDraft(9, 8)],
+  ['a lower version', completeDraft(9, 7)],
+  ['a different recipe id', completeDraft(10, 9)],
+])(
+  'autosave conflict refresh returning %s keeps the publish recovery gate',
+  async (_label, refreshedDraft) => {
+    const app = createAppMock();
+    app.getRecipeDraft
+      .mockResolvedValueOnce(completeDraft(9, 8))
+      .mockResolvedValueOnce(refreshedDraft);
+    app.saveRecipeBasicInfo.mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    );
+    app.publishRecipe.mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    );
+    runtime.getApp = () => app;
+    const page = createPageInstance(await loadEditorPage());
+    await page.onLoad({ id: '9' });
+    page.data.activeStep = 'PREVIEW';
+    await page.onPublish();
+    await page.onSelectStep(touchEvent({ step: 'BASIC' }));
+    page.onBasicInput(inputEvent('仍冲突的本地菜名', { field: 'name' }));
+    await jest.advanceTimersByTimeAsync(800);
+
+    await page.onRetrySave();
+
+    expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+    expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(1);
+    expect(page.data.saveState).toBe('conflict');
+    expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+    expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+  },
+);
+
 test('mutation accepted before a conflict refresh is dirty even when its setData callback is delayed', async () => {
   const app = createAppMock();
   app.getRecipeDraft

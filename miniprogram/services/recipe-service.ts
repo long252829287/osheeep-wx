@@ -1,5 +1,15 @@
 import type { RequestInit } from '../types/api';
-import type { RecipeDiscoveryQuery, RecipeSummary } from '../types/recipe';
+import type {
+  FamilyRecipeListItem,
+  FamilyRecipeTab,
+  RecipeBasicInfoInput,
+  RecipeDefaultMethodInput,
+  RecipeDiscoveryQuery,
+  RecipeDraft,
+  RecipeImageAsset,
+  RecipeIngredientsInput,
+  RecipeSummary,
+} from '../types/recipe';
 
 type RequestFunction = <T>(path: string, init?: RequestInit) => Promise<T>;
 
@@ -24,4 +34,43 @@ export const createRecipeService = (options: { request: RequestFunction }) => ({
     options.request<RecipeSummary[]>(
       `/api/dinner/recipes${queryString(query)}`,
     ),
+  listFamily: (tab: FamilyRecipeTab) =>
+    options.request<FamilyRecipeListItem[]>(
+      `/api/dinner/recipes/family?tab=${tab}`,
+    ),
+  createDraft: () =>
+    options.request<RecipeDraft>('/api/dinner/recipes/drafts', {
+      method: 'POST',
+    }),
+  detail: (id: number) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}`),
+  saveBasicInfo: (id: number, input: RecipeBasicInfoInput) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}/basic-info`, {
+      method: 'PUT',
+      data: { ...input },
+    }),
+  saveIngredients: (id: number, input: RecipeIngredientsInput) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}/ingredients`, {
+      method: 'PUT',
+      data: { ...input },
+    }),
+  saveDefaultMethod: (id: number, input: RecipeDefaultMethodInput) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}/default-method`, {
+      method: 'PUT',
+      data: { ...input },
+    }),
+  saveImage: (id: number, version: number, imageAssetId: number | null) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}/image`, {
+      method: 'PUT',
+      data: { version, imageAssetId },
+    }),
+  listImages: (query: string) =>
+    options.request<RecipeImageAsset[]>(
+      `/api/dinner/image-assets?query=${encodeURIComponent(query)}`,
+    ),
+  publish: (id: number, version: number) =>
+    options.request<RecipeDraft>(`/api/dinner/recipes/${id}/publish`, {
+      method: 'POST',
+      data: { version },
+    }),
 });

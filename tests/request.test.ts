@@ -127,3 +127,33 @@ test('maps transport failures to NETWORK_ERROR', async () => {
     }),
   );
 });
+
+test('preserves structured failure details on ApiError', async () => {
+  const details = [{ step: 'BASIC', field: 'name', message: '请填写菜名' }];
+  const request: RequestPort = {
+    request: (options) =>
+      options.success?.({
+        statusCode: 422,
+        data: {
+          success: false,
+          errorCode: 'DINNER_RECIPE_INCOMPLETE',
+          message: '菜谱信息不完整',
+          data: details,
+          requestId: 'r-details',
+        },
+      }),
+  };
+  const client = createRequestClient({
+    request,
+    apiBaseUrl: 'https://api.test',
+    getAccessToken: () => undefined,
+  });
+
+  await expect(client.request('/api/dinner/recipes/9/publish')).rejects.toEqual(
+    expect.objectContaining({
+      errorCode: 'DINNER_RECIPE_INCOMPLETE',
+      details,
+      requestId: 'r-details',
+    }),
+  );
+});

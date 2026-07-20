@@ -32,3 +32,100 @@ export interface RecipeDiscoveryQuery {
   excludeIngredientIds?: number[];
   onlyCookable?: boolean;
 }
+
+export type FamilyRecipeTab = 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+
+export type RecipeStep =
+  'BASIC' | 'INGREDIENTS' | 'METHOD' | 'IMAGE' | 'PREVIEW';
+
+export interface FamilyRecipeListItem {
+  id: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  name?: string | null;
+  imageUrl?: string;
+  category?: string | null;
+  flavor?: string | null;
+  servings?: number | null;
+  estimatedMinutes?: number | null;
+  version: number;
+  creatorId: number;
+  creatorName: string;
+  lastModifiedBy: number;
+  lastModifiedByName: string;
+  completedStep: RecipeStep;
+  updatedAt: string;
+}
+
+export interface RecipeImageAsset {
+  id: number;
+  displayName: string;
+  listUrl: string;
+  detailUrl: string;
+  sourcePageUrl: string;
+  author: string;
+  licenseName: string;
+  licenseUrl: string;
+  acquiredOn: string;
+  width: number;
+  height: number;
+}
+
+export interface RecipeMethodStepDraft {
+  instruction: string | null;
+  sortOrder: number;
+}
+
+export interface RecipeMethodDraft {
+  id?: number;
+  name?: string | null;
+  cookingStyle?: string | null;
+  steps: RecipeMethodStepDraft[];
+}
+
+export interface RecipeDraft {
+  id: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  version: number;
+  name?: string | null;
+  category?: string | null;
+  flavor?: string | null;
+  servings?: number | null;
+  estimatedMinutes?: number | null;
+  ingredients: RecipeIngredient[];
+  defaultMethod?: RecipeMethodDraft;
+  image?: RecipeImageAsset | null;
+  incompleteSteps: RecipeStep[];
+  updatedAt: string | null;
+}
+
+export interface RecipeBasicInfoInput {
+  version: number;
+  name?: string | null;
+  category?: string | null;
+  flavor?: string | null;
+  servings?: number | null;
+  estimatedMinutes?: number | null;
+}
+
+export interface RecipeIngredientInput {
+  ingredientId: number;
+  quantity: number | null;
+  unit: string;
+  required: boolean;
+}
+
+export interface RecipeIngredientsInput {
+  version: number;
+  ingredients: RecipeIngredientInput[];
+}
+
+export interface RecipeMethodStepInput {
+  instruction: string | null;
+}
+
+export interface RecipeDefaultMethodInput {
+  version: number;
+  name?: string | null;
+  cookingStyle?: string | null;
+  steps: RecipeMethodStepInput[];
+}

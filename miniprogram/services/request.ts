@@ -23,6 +23,7 @@ export class ApiError extends Error {
     public readonly errorCode: string,
     message: string,
     public readonly requestId?: string,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -66,6 +67,7 @@ export const createRequestClient = (options: {
               body.errorCode ?? 'UNKNOWN_ERROR',
               body.message ?? '请求失败',
               body.requestId,
+              body.data,
             ),
           );
         },

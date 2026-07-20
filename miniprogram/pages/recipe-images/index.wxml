@@ -14,6 +14,7 @@
       placeholder-class="input-placeholder"
       confirm-type="search"
       aria-label="搜索已审核菜谱图片"
+      disabled="{{selectionLocked}}"
       bindinput="onSearchInput"
     />
   </view>
@@ -66,7 +67,7 @@
       <text class="approved-note">只显示已审核、可追溯的真实图片</text>
       <button
         class="asset-choice {{selectedId === item.id ? 'asset-choice--selected' : ''}}"
-        disabled="{{selectingId !== 0}}"
+        disabled="{{selectionLocked || selectingId !== 0}}"
         aria-label="{{selectedId === item.id ? item.displayName + '已选中' : '选择' + item.displayName}}"
         aria-checked="{{selectedId === item.id}}"
         data-id="{{item.id}}"

@@ -44,6 +44,38 @@ test('debounces 800ms and serializes edits made during an in-flight save', async
   expect(save).toHaveBeenNthCalledWith(2, 'second', 2);
 });
 
+test('dirty stays true when a newer edit arrives during an in-flight save', async () => {
+  jest.useFakeTimers();
+  const first = deferred<{ version: number }>();
+  const save = jest
+    .fn()
+    .mockReturnValueOnce(first.promise)
+    .mockResolvedValueOnce({ version: 3 });
+  let version = 1;
+  const autosave = createRecipeAutosave<string>({
+    getVersion: () => version,
+    save,
+    onVersion: (next) => {
+      version = next;
+    },
+    onState: jest.fn(),
+  });
+
+  expect(autosave.dirty()).toBe(false);
+  autosave.schedule('first');
+  expect(autosave.dirty()).toBe(true);
+  await jest.advanceTimersByTimeAsync(800);
+  autosave.schedule('newer');
+  first.resolve({ version: 2 });
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(autosave.dirty()).toBe(true);
+  await autosave.flush();
+  expect(autosave.dirty()).toBe(false);
+  expect(save).toHaveBeenNthCalledWith(2, 'newer', 2);
+});
+
 test('flush runs a scheduled latest snapshot immediately', async () => {
   jest.useFakeTimers();
   const save = jest.fn().mockResolvedValue({ version: 2 });

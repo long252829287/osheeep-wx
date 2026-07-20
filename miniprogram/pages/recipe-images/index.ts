@@ -12,6 +12,7 @@ interface ImagePageData {
   visibleAssets: RecipeImageAsset[];
   selectedId: number;
   selectingId: number;
+  selectionLocked: boolean;
   interactionErrorMessage: string;
 }
 
@@ -96,6 +97,7 @@ const navigateBack = (page: ImagePageContext): void => {
       if (runtime.destroyed) return;
       page.setData({
         selectingId: 0,
+        selectedId,
         interactionErrorMessage: '图片已选择，返回失败，请再次点选返回',
       });
     },
@@ -111,6 +113,7 @@ Page({
     visibleAssets: [] as RecipeImageAsset[],
     selectedId: 0,
     selectingId: 0,
+    selectionLocked: false,
     interactionErrorMessage: '',
   },
 
@@ -130,6 +133,7 @@ Page({
   },
 
   onSearchInput(event: WechatMiniprogram.Input) {
+    if (runtimeFor(this).selectionEmitted) return;
     const searchQuery = event.detail.value;
     const visibleAssets = visibleAssetsFor(this.data.assets, searchQuery);
     const selectedRemainsVisible = visibleAssets.some(
@@ -156,6 +160,9 @@ Page({
     const runtime = runtimeFor(this);
     if (runtime.destroyed || this.data.selectingId !== 0) return;
     const id = Number(event.currentTarget.dataset.id);
+    if (runtime.selectionEmitted && id !== runtime.pendingSelectedId) {
+      return;
+    }
     const selected = this.data.visibleAssets.find((asset) => asset.id === id);
     if (!selected) return;
 
@@ -178,6 +185,7 @@ Page({
       eventChannel.emit('imageSelected', selected);
       runtime.selectionEmitted = true;
       runtime.pendingSelectedId = selected.id;
+      this.setData({ selectionLocked: true, selectedId: selected.id });
     }
 
     navigateBack(this);

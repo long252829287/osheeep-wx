@@ -51,6 +51,9 @@ interface IngredientSnapshot {
   ingredients: RecipeIngredientInput[] | null;
 }
 type MethodSnapshot = Omit<RecipeDefaultMethodInput, 'version'>;
+interface MethodSaveSnapshot {
+  method: MethodSnapshot | null;
+}
 
 interface EditorIngredientRow {
   clientKey: string;
@@ -90,6 +93,7 @@ interface EditorPageData {
   estimatedMinutesInput: string;
   editorIngredients: EditorIngredientRow[];
   ingredientCatalog: Ingredient[];
+  ingredientLimitMessage: string;
   methodNameInput: string;
   cookingStyleInput: string;
   methodSteps: string[];
@@ -105,7 +109,10 @@ interface EditorPageData {
   publishIssues: RecipePublishIssue[];
   publishing: boolean;
   navigationPending: boolean;
+  refreshPending: boolean;
   publishErrorMessage: string;
+  redirectRetryAvailable: boolean;
+  publishConflictRecoveryAvailable: boolean;
   readOnly: boolean;
 }
 
@@ -117,7 +124,7 @@ interface EditorPageContext {
 interface AutosaveBundle {
   BASIC: RecipeAutosave<BasicSnapshot>;
   INGREDIENTS: RecipeAutosave<IngredientSnapshot>;
-  METHOD: RecipeAutosave<MethodSnapshot>;
+  METHOD: RecipeAutosave<MethodSaveSnapshot>;
   IMAGE: RecipeAutosave<number | null>;
 }
 
@@ -135,6 +142,7 @@ interface EditorRuntime {
   controlledNavigation: boolean;
   writesDisabled: boolean;
   conflictedStep: EditableRecipeStep | null;
+  failedStep: EditableRecipeStep | null;
   nextClientKey: number;
 }
 
@@ -183,6 +191,7 @@ const runtimeFor = (page: object): EditorRuntime => {
     controlledNavigation: false,
     writesDisabled: false,
     conflictedStep: null,
+    failedStep: null,
     nextClientKey: 1,
   };
   pageRuntimes.set(page, created);
@@ -191,6 +200,16 @@ const runtimeFor = (page: object): EditorRuntime => {
 
 const canSetData = (page: EditorPageContext): boolean =>
   !runtimeFor(page).destroyed;
+
+const mutationIsLocked = (page: EditorPageContext): boolean => {
+  const runtime = runtimeFor(page);
+  return (
+    page.data.readOnly ||
+    runtime.writesDisabled ||
+    page.data.publishing ||
+    page.data.refreshPending
+  );
+};
 
 const isEditableStep = (step: RecipeStep): step is EditableRecipeStep =>
   step !== 'PREVIEW';
@@ -351,8 +370,11 @@ const basicSnapshot = (page: EditorPageContext): BasicSnapshot => {
 
 const ingredientPayload = (
   rows: EditorIngredientRow[],
-): RecipeIngredientInput[] =>
-  rows.map((row, index) => {
+): RecipeIngredientInput[] => {
+  if (rows.length > 50) {
+    throw new EditorFieldError('ingredients', '食材不能超过50种');
+  }
+  return rows.map((row, index) => {
     if (!Number.isSafeInteger(row.ingredientId) || row.ingredientId <= 0) {
       throw new EditorFieldError(
         `ingredients[${String(index)}].ingredientId`,
@@ -382,6 +404,7 @@ const ingredientPayload = (
       throw error;
     }
   });
+};
 
 const safeIngredientPayload = (
   rows: EditorIngredientRow[],
@@ -393,13 +416,30 @@ const safeIngredientPayload = (
   }
 };
 
-const methodSnapshot = (page: EditorPageContext): MethodSnapshot => ({
-  name: textOrNull(page.data.methodNameInput),
-  cookingStyle: textOrNull(page.data.cookingStyleInput),
-  steps: page.data.methodSteps.map((instruction) => ({
-    instruction: textOrNull(instruction),
-  })),
-});
+const methodSnapshot = (page: EditorPageContext): MethodSnapshot => {
+  if (page.data.methodNameInput.length > 40) {
+    throw new EditorFieldError('methodName', '做法名称最多填写40个字');
+  }
+  if (page.data.cookingStyleInput.length > 32) {
+    throw new EditorFieldError('cookingStyle', '烹饪方式最多填写32个字');
+  }
+  const invalidStep = page.data.methodSteps.findIndex(
+    (instruction) => instruction.length > 160,
+  );
+  if (invalidStep >= 0) {
+    throw new EditorFieldError(
+      `steps[${String(invalidStep)}]`,
+      '每个步骤最多160个字',
+    );
+  }
+  return {
+    name: textOrNull(page.data.methodNameInput),
+    cookingStyle: textOrNull(page.data.cookingStyleInput),
+    steps: page.data.methodSteps.map((instruction) => ({
+      instruction: textOrNull(instruction),
+    })),
+  };
+};
 
 const draftIngredients = (rows: EditorIngredientRow[]): RecipeIngredient[] =>
   rows.map((row, index) => {
@@ -493,6 +533,26 @@ const clearErrorsWithPrefix = (
   page.setData({ fieldErrors });
 };
 
+const fieldErrorsWithIngredientRows = (
+  page: EditorPageContext,
+  rows: EditorIngredientRow[],
+): Record<string, string> => {
+  const fieldErrors = Object.fromEntries(
+    Object.entries(page.data.fieldErrors).filter(
+      ([field]) => !field.startsWith('ingredients['),
+    ),
+  );
+  rows.forEach((row, index) => {
+    if (row.quantityError) {
+      fieldErrors[`ingredients[${String(index)}].quantity`] = row.quantityError;
+    }
+    if (row.unitError) {
+      fieldErrors[`ingredients[${String(index)}].unit`] = row.unitError;
+    }
+  });
+  return fieldErrors;
+};
+
 const fieldErrorsWithMethodErrors = (
   page: EditorPageContext,
   errors: string[],
@@ -521,9 +581,149 @@ const hasStepErrors = (page: EditorPageContext, step: RecipeStep): boolean => {
     return fields.some((field) => field.startsWith('ingredients'));
   }
   if (step === 'METHOD') {
-    return fields.some((field) => field.startsWith('steps'));
+    return fields.some(
+      (field) =>
+        field === 'methodName' ||
+        field === 'cookingStyle' ||
+        field.startsWith('steps'),
+    );
   }
   return false;
+};
+
+const ingredientRowsFromDraft = (
+  page: EditorPageContext,
+  draft: RecipeDraft,
+  catalog: Ingredient[],
+): EditorIngredientRow[] =>
+  Array.isArray(draft.ingredients)
+    ? draft.ingredients
+        .filter(
+          (ingredient) =>
+            typeof ingredient?.ingredientId === 'number' &&
+            ingredient.ingredientId > 0,
+        )
+        .map((ingredient) => ({
+          clientKey: nextClientKey(page, 'ingredient'),
+          ingredientId: ingredient.ingredientId as number,
+          name:
+            ingredient.name ??
+            catalog.find(
+              (candidate) => candidate.id === ingredient.ingredientId,
+            )?.name ??
+            '未命名食材',
+          quantityInput:
+            ingredient.quantity === null || ingredient.quantity === undefined
+              ? ''
+              : String(ingredient.quantity),
+          unit: ingredient.unit ?? '',
+          required: Boolean(ingredient.required),
+          quantityError: '',
+          unitError: '',
+        }))
+    : [];
+
+const normalizedDraft = (draft: RecipeDraft): RecipeDraft => ({
+  ...draft,
+  ingredients: Array.isArray(draft.ingredients) ? draft.ingredients : [],
+  incompleteSteps: Array.isArray(draft.incompleteSteps)
+    ? draft.incompleteSteps
+    : [],
+});
+
+const stepHasUnsavedInput = (
+  page: EditorPageContext,
+  step: EditableRecipeStep,
+): boolean =>
+  Boolean(runtimeFor(page).autosaves?.[step].dirty()) ||
+  hasStepErrors(page, step);
+
+const withoutStepErrors = (
+  errors: Record<string, string>,
+  step: EditableRecipeStep,
+): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(errors).filter(([field]) => {
+      if (step === 'BASIC') {
+        return ![
+          'name',
+          'category',
+          'flavor',
+          'servings',
+          'estimatedMinutes',
+        ].includes(field);
+      }
+      if (step === 'INGREDIENTS') return !field.startsWith('ingredients');
+      if (step === 'METHOD') {
+        return (
+          field !== 'methodName' &&
+          field !== 'cookingStyle' &&
+          !field.startsWith('steps')
+        );
+      }
+      return true;
+    }),
+  );
+
+const mergeCanonicalControls = (
+  page: EditorPageContext,
+  draft: RecipeDraft,
+  forceAll = false,
+): void => {
+  if (!canSetData(page)) return;
+  const syncStep = (step: EditableRecipeStep): boolean =>
+    forceAll || !stepHasUnsavedInput(page, step);
+  const update: Partial<EditorPageData> = {
+    draft: normalizedDraft(draft),
+    version: draft.version,
+  };
+  let fieldErrors = { ...page.data.fieldErrors };
+
+  if (syncStep('BASIC')) {
+    update.nameInput = draft.name ?? '';
+    update.categoryInput = draft.category ?? '';
+    update.flavorInput = draft.flavor ?? '';
+    update.servingsInput =
+      draft.servings === null || draft.servings === undefined
+        ? ''
+        : String(draft.servings);
+    update.estimatedMinutesInput =
+      draft.estimatedMinutes === null || draft.estimatedMinutes === undefined
+        ? ''
+        : String(draft.estimatedMinutes);
+    fieldErrors = withoutStepErrors(fieldErrors, 'BASIC');
+  }
+
+  if (syncStep('INGREDIENTS')) {
+    const ingredients = ingredientRowsFromDraft(
+      page,
+      draft,
+      page.data.ingredientCatalog,
+    );
+    update.editorIngredients = ingredients;
+    update.ingredientLimitMessage =
+      ingredients.length >= 50 ? '最多可添加50种食材' : '';
+    fieldErrors = withoutStepErrors(fieldErrors, 'INGREDIENTS');
+  }
+
+  if (syncStep('METHOD')) {
+    const steps = Array.isArray(draft.defaultMethod?.steps)
+      ? draft.defaultMethod.steps.map((step) => step.instruction ?? '')
+      : [];
+    const keys = ensureMethodKeys(page, steps, []);
+    update.methodNameInput = draft.defaultMethod?.name ?? '';
+    update.cookingStyleInput = draft.defaultMethod?.cookingStyle ?? '';
+    update.methodSteps = steps;
+    update.methodStepKeys = keys;
+    update.methodStepErrors = steps.map(() => '');
+    update.methodStepRows = methodRows(steps, keys);
+    update.methodConfigured = draft.defaultMethod !== null;
+    fieldErrors = withoutStepErrors(fieldErrors, 'METHOD');
+  }
+
+  if (syncStep('IMAGE')) update.selectedImage = draft.image ?? null;
+  update.fieldErrors = fieldErrors;
+  page.setData(update);
 };
 
 const disposeAutosaves = (runtime: EditorRuntime): void => {
@@ -558,7 +758,16 @@ const markAccessLost = (page: EditorPageContext, error: unknown): void => {
   const runtime = runtimeFor(page);
   runtime.writesDisabled = true;
   disposeAutosaves(runtime);
-  if (canSetData(page)) page.setData({ readOnly: true });
+  if (canSetData(page)) {
+    page.setData({
+      readOnly: true,
+      activeStep: 'PREVIEW',
+      publishErrorMessage:
+        errorCodeOf(error) === 'DINNER_RECIPE_NOT_FOUND'
+          ? '这份菜谱已不存在，请返回家庭菜谱'
+          : '你已无权编辑这份菜谱，请返回家庭菜谱',
+    });
+  }
 };
 
 const enqueueWrite = (
@@ -590,9 +799,23 @@ const createStepAutosaves = (page: EditorPageContext): AutosaveBundle => {
   const stateObserver =
     (step: EditableRecipeStep) => (state: RecipeAutosaveState) => {
       const runtime = runtimeFor(page);
-      if (state === 'conflict') runtime.conflictedStep = step;
+      if (state === 'conflict') {
+        runtime.conflictedStep = step;
+        runtime.failedStep = step;
+      }
+      if (state === 'error') runtime.failedStep = step;
       if (state === 'saved' && runtime.conflictedStep === step) {
         runtime.conflictedStep = null;
+      }
+      if (state === 'saved' && runtime.failedStep === step) {
+        runtime.failedStep = null;
+      }
+      if (
+        runtime.failedStep &&
+        runtime.failedStep !== step &&
+        (state === 'saved' || state === 'idle')
+      ) {
+        return;
       }
       setSaveState(page, state);
     };
@@ -640,13 +863,18 @@ const createStepAutosaves = (page: EditorPageContext): AutosaveBundle => {
       onVersion: versionObserver,
       onState: stateObserver('INGREDIENTS'),
     }),
-    METHOD: createRecipeAutosave<MethodSnapshot>({
+    METHOD: createRecipeAutosave<MethodSaveSnapshot>({
       getVersion: () => runtimeFor(page).serverVersion,
       save: (value) => {
+        if (!value.method) {
+          return Promise.reject(
+            new EditorFieldError('defaultMethod', '请先修正做法字段'),
+          );
+        }
         const snapshot: MethodSnapshot = {
-          name: value.name ?? null,
-          cookingStyle: value.cookingStyle ?? null,
-          steps: value.steps.map((step) => ({
+          name: value.method.name ?? null,
+          cookingStyle: value.method.cookingStyle ?? null,
+          steps: value.method.steps.map((step) => ({
             instruction: step.instruction ?? null,
           })),
         };
@@ -702,11 +930,20 @@ const scheduleIngredients = (page: EditorPageContext): void => {
 const scheduleMethod = (page: EditorPageContext): void => {
   const autosave = runtimeFor(page).autosaves?.METHOD;
   if (!autosave) return;
-  const snapshot = methodSnapshot(page);
-  autosave.schedule({
-    ...snapshot,
-    steps: snapshot.steps.map((step) => ({ ...step })),
-  });
+  try {
+    const snapshot = methodSnapshot(page);
+    autosave.schedule({
+      method: {
+        ...snapshot,
+        steps: snapshot.steps.map((step) => ({ ...step })),
+      },
+    });
+  } catch (error) {
+    if (error instanceof EditorFieldError) {
+      replaceFieldError(page, error.field, error.message);
+    }
+    autosave.schedule({ method: null });
+  }
 };
 
 const activeAutosave = (
@@ -718,14 +955,25 @@ const activeAutosave = (
 };
 
 const flushActive = async (page: EditorPageContext): Promise<void> => {
-  await activeAutosave(page)?.flush();
+  const step = page.data.activeStep;
+  try {
+    await activeAutosave(page)?.flush();
+  } catch (error) {
+    if (isEditableStep(step)) runtimeFor(page).failedStep = step;
+    throw error;
+  }
 };
 
 const flushAll = async (page: EditorPageContext): Promise<void> => {
   const autosaves = runtimeFor(page).autosaves;
   if (!autosaves) return;
   for (const step of ['BASIC', 'INGREDIENTS', 'METHOD', 'IMAGE'] as const) {
-    await autosaves[step].flush();
+    try {
+      await autosaves[step].flush();
+    } catch (error) {
+      runtimeFor(page).failedStep = step;
+      throw error;
+    }
   }
 };
 
@@ -745,32 +993,7 @@ const hydrateDraft = (
   catalog: Ingredient[],
 ): void => {
   const runtime = runtimeFor(page);
-  const ingredients = Array.isArray(draft.ingredients)
-    ? draft.ingredients
-        .filter(
-          (ingredient) =>
-            typeof ingredient?.ingredientId === 'number' &&
-            ingredient.ingredientId > 0,
-        )
-        .map((ingredient) => ({
-          clientKey: nextClientKey(page, 'ingredient'),
-          ingredientId: ingredient.ingredientId as number,
-          name:
-            ingredient.name ??
-            catalog.find(
-              (candidate) => candidate.id === ingredient.ingredientId,
-            )?.name ??
-            '未命名食材',
-          quantityInput:
-            ingredient.quantity === null || ingredient.quantity === undefined
-              ? ''
-              : String(ingredient.quantity),
-          unit: ingredient.unit ?? '',
-          required: Boolean(ingredient.required),
-          quantityError: '',
-          unitError: '',
-        }))
-    : [];
+  const ingredients = ingredientRowsFromDraft(page, draft, catalog);
   const serverSteps = Array.isArray(draft.defaultMethod?.steps)
     ? draft.defaultMethod.steps
     : [];
@@ -779,6 +1002,10 @@ const hydrateDraft = (
   const readOnly = draft.status !== 'DRAFT';
   runtime.serverVersion = draft.version;
   runtime.writesDisabled = readOnly;
+  runtime.conflictedStep = null;
+  runtime.failedStep = null;
+  runtime.publishedDraft = readOnly ? draft : null;
+  runtime.pendingRedirect = false;
   page.setData({
     loading: false,
     loadErrorMessage: '',
@@ -798,6 +1025,8 @@ const hydrateDraft = (
         : String(draft.estimatedMinutes),
     editorIngredients: ingredients,
     ingredientCatalog: catalog,
+    ingredientLimitMessage:
+      ingredients.length >= 50 ? '最多可添加50种食材' : '',
     methodNameInput: draft.defaultMethod?.name ?? '',
     cookingStyleInput: draft.defaultMethod?.cookingStyle ?? '',
     methodSteps: steps,
@@ -806,18 +1035,15 @@ const hydrateDraft = (
     methodStepRows: methodRows(steps, keys),
     methodConfigured: draft.defaultMethod !== null,
     selectedImage: draft.image ?? null,
-    draft: {
-      ...draft,
-      ingredients: Array.isArray(draft.ingredients) ? draft.ingredients : [],
-      incompleteSteps: Array.isArray(draft.incompleteSteps)
-        ? draft.incompleteSteps
-        : [],
-    },
+    draft: normalizedDraft(draft),
     saveState: 'saved',
     saveMessage: '已保存',
     fieldErrors: {},
     publishIssues: [],
     publishErrorMessage: '',
+    refreshPending: false,
+    redirectRetryAvailable: false,
+    publishConflictRecoveryAvailable: false,
     readOnly,
   });
   disposeAutosaves(runtime);
@@ -859,19 +1085,30 @@ const loadRecipe = async (page: EditorPageContext): Promise<void> => {
   }
 };
 
-const refreshConflictVersion = async (
+const refreshCanonicalVersion = (
   page: EditorPageContext,
+  failureMessage: string,
 ): Promise<boolean> => {
   const runtime = runtimeFor(page);
-  try {
-    const draft = await getApp<OsheeepApp>().getRecipeDraft(page.data.recipeId);
-    if (runtime.destroyed) return false;
-    if (
-      draft.id !== page.data.recipeId ||
-      draft.version <= runtime.serverVersion ||
-      draft.status !== 'DRAFT'
-    ) {
+  if (canSetData(page)) page.setData({ refreshPending: true });
+  const operation = runtime.writeTail
+    .catch(() => undefined)
+    .then(async () => {
+      const draft = await getApp<OsheeepApp>().getRecipeDraft(
+        page.data.recipeId,
+      );
+      if (runtime.destroyed) return false;
+      if (
+        draft.id !== page.data.recipeId ||
+        !Number.isSafeInteger(draft.version)
+      ) {
+        return false;
+      }
       if (draft.status !== 'DRAFT') {
+        if (draft.version >= runtime.serverVersion) {
+          runtime.serverVersion = draft.version;
+          mergeCanonicalControls(page, draft, true);
+        }
         runtime.writesDisabled = true;
         disposeAutosaves(runtime);
         page.setData({
@@ -879,20 +1116,32 @@ const refreshConflictVersion = async (
           activeStep: 'PREVIEW',
           publishErrorMessage: '这份菜谱已不能继续编辑',
         });
+        return false;
+      }
+      if (draft.version <= runtime.serverVersion) return false;
+      runtime.serverVersion = draft.version;
+      mergeCanonicalControls(page, draft);
+      return true;
+    })
+    .catch((error: unknown) => {
+      markAccessLost(page, error);
+      if (canSetData(page) && !accessWasLost(error)) {
+        page.setData({ publishErrorMessage: failureMessage });
       }
       return false;
-    }
-    runtime.serverVersion = draft.version;
-    page.setData({ draft, version: draft.version });
-    return true;
-  } catch (error) {
-    markAccessLost(page, error);
-    if (canSetData(page)) {
-      page.setData({ publishErrorMessage: '刷新菜谱失败，请稍后重试' });
-    }
-    return false;
-  }
+    })
+    .finally(() => {
+      if (canSetData(page)) page.setData({ refreshPending: false });
+    });
+  runtime.writeTail = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return operation;
 };
+
+const refreshConflictVersion = (page: EditorPageContext): Promise<boolean> =>
+  refreshCanonicalVersion(page, '刷新菜谱失败，请稍后重试');
 
 const navigateBackAfterFlush = (page: EditorPageContext): Promise<void> => {
   const runtime = runtimeFor(page);
@@ -940,6 +1189,7 @@ const startNavigation = (
     runtime.publishOperation ||
     page.data.loading ||
     page.data.readOnly ||
+    page.data.refreshPending ||
     runtime.destroyed
   ) {
     return runtime.navigationOperation ?? Promise.resolve();
@@ -1013,6 +1263,9 @@ const redirectToFamily = (page: EditorPageContext): Promise<void> => {
       success: () => {
         runtime.pendingRedirect = false;
         runtime.controlledNavigation = true;
+        if (canSetData(page)) {
+          page.setData({ redirectRetryAvailable: false });
+        }
         resolve();
       },
       fail: () => reject(new Error('PUBLISHED_RECIPE_REDIRECT_FAILED')),
@@ -1029,6 +1282,7 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
       if (canSetData(page)) {
         page.setData({
           publishErrorMessage: '菜谱已发布，暂时无法返回，请重试',
+          redirectRetryAvailable: true,
         });
       }
     }
@@ -1088,6 +1342,8 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
       version: published.version,
       publishIssues: [],
       publishErrorMessage: '',
+      redirectRetryAvailable: false,
+      publishConflictRecoveryAvailable: false,
       readOnly: true,
     });
     try {
@@ -1096,6 +1352,7 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
       if (canSetData(page)) {
         page.setData({
           publishErrorMessage: '菜谱已发布，暂时无法返回，请重试',
+          redirectRetryAvailable: true,
         });
       }
     }
@@ -1111,7 +1368,12 @@ const runPublish = async (page: EditorPageContext): Promise<void> => {
       });
       return;
     }
-    page.setData({ publishErrorMessage: publishErrorMessage(error) });
+    const publishConflict =
+      errorCodeOf(error) === 'DINNER_RECIPE_VERSION_CONFLICT';
+    page.setData({
+      publishErrorMessage: publishErrorMessage(error),
+      publishConflictRecoveryAvailable: publishConflict,
+    });
   }
 };
 
@@ -1131,6 +1393,7 @@ Page({
     estimatedMinutesInput: '',
     editorIngredients: [] as EditorIngredientRow[],
     ingredientCatalog: [] as Ingredient[],
+    ingredientLimitMessage: '',
     methodNameInput: '',
     cookingStyleInput: '',
     methodSteps: [] as string[],
@@ -1147,6 +1410,9 @@ Page({
     publishing: false,
     navigationPending: false,
     publishErrorMessage: '',
+    refreshPending: false,
+    redirectRetryAvailable: false,
+    publishConflictRecoveryAvailable: false,
     readOnly: false,
   },
 
@@ -1200,8 +1466,7 @@ Page({
   },
 
   onBasicInput(event: WechatMiniprogram.Input) {
-    const runtime = runtimeFor(this);
-    if (this.data.readOnly || runtime.writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const field = String(event.currentTarget.dataset.field ?? '');
     const value = event.detail.value;
     const update: Partial<EditorPageData> = {};
@@ -1226,8 +1491,7 @@ Page({
   },
 
   onAddIngredient(event: WechatMiniprogram.TouchEvent) {
-    const runtime = runtimeFor(this);
-    if (this.data.readOnly || runtime.writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const fromDataset = event.currentTarget.dataset.ingredient as
       Ingredient | undefined;
     const id = Number(fromDataset?.id ?? event.currentTarget.dataset.id);
@@ -1237,6 +1501,10 @@ Page({
         (ingredient) => ingredient.ingredientId === id,
       )
     ) {
+      return;
+    }
+    if (this.data.editorIngredients.length >= 50) {
+      this.setData({ ingredientLimitMessage: '最多可添加50种食材' });
       return;
     }
     const catalog = this.data.ingredientCatalog.find(
@@ -1268,14 +1536,22 @@ Page({
         unitError: '',
       },
     ];
-    this.setData({ editorIngredients }, () => {
-      syncLocalDraft(this);
-      scheduleIngredients(this);
-    });
+    this.setData(
+      {
+        editorIngredients,
+        ingredientLimitMessage:
+          editorIngredients.length >= 50 ? '最多可添加50种食材' : '',
+        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+      },
+      () => {
+        syncLocalDraft(this);
+        scheduleIngredients(this);
+      },
+    );
   },
 
   onIngredientQuantityInput(event: WechatMiniprogram.Input) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const id = Number(event.currentTarget.dataset.id);
     const rawIndex = Number(event.currentTarget.dataset.index);
     const index =
@@ -1285,7 +1561,6 @@ Page({
           )
         : rawIndex;
     if (index < 0 || index >= this.data.editorIngredients.length) return;
-    const field = `ingredients[${String(index)}].quantity`;
     let message = '';
     try {
       parseRecipeQuantity(event.detail.value);
@@ -1305,15 +1580,20 @@ Page({
             }
           : ingredient,
     );
-    this.setData({ editorIngredients }, () => {
-      replaceFieldError(this, field, message);
-      syncLocalDraft(this);
-      scheduleIngredients(this);
-    });
+    this.setData(
+      {
+        editorIngredients,
+        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+      },
+      () => {
+        syncLocalDraft(this);
+        scheduleIngredients(this);
+      },
+    );
   },
 
   onIngredientUnitInput(event: WechatMiniprogram.Input) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const id = Number(event.currentTarget.dataset.id);
     const index = this.data.editorIngredients.findIndex(
       (ingredient) => ingredient.ingredientId === id,
@@ -1329,15 +1609,20 @@ Page({
           ? { ...ingredient, unit: event.detail.value, unitError: message }
           : ingredient,
     );
-    this.setData({ editorIngredients }, () => {
-      replaceFieldError(this, `ingredients[${String(index)}].unit`, message);
-      syncLocalDraft(this);
-      scheduleIngredients(this);
-    });
+    this.setData(
+      {
+        editorIngredients,
+        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+      },
+      () => {
+        syncLocalDraft(this);
+        scheduleIngredients(this);
+      },
+    );
   },
 
   onToggleIngredientRequired(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const id = Number(event.currentTarget.dataset.id);
     if (!this.data.editorIngredients.some((item) => item.ingredientId === id)) {
       return;
@@ -1354,7 +1639,7 @@ Page({
   },
 
   onRemoveIngredient(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const id = Number(event.currentTarget.dataset.id);
     const index = this.data.editorIngredients.findIndex(
       (ingredient) => ingredient.ingredientId === id,
@@ -1363,11 +1648,17 @@ Page({
     const editorIngredients = this.data.editorIngredients.filter(
       (ingredient) => ingredient.ingredientId !== id,
     );
-    clearErrorsWithPrefix(this, `ingredients[${String(index)}]`);
-    this.setData({ editorIngredients }, () => {
-      syncLocalDraft(this);
-      scheduleIngredients(this);
-    });
+    this.setData(
+      {
+        editorIngredients,
+        ingredientLimitMessage: '',
+        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+      },
+      () => {
+        syncLocalDraft(this);
+        scheduleIngredients(this);
+      },
+    );
   },
 
   currentIngredientPayload(): RecipeIngredientInput[] {
@@ -1375,10 +1666,13 @@ Page({
   },
 
   onMethodNameInput(event: WechatMiniprogram.Input) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
+    const message =
+      event.detail.value.length > 40 ? '做法名称最多填写40个字' : '';
     this.setData(
       { methodNameInput: event.detail.value, methodConfigured: true },
       () => {
+        replaceFieldError(this, 'methodName', message);
         syncLocalDraft(this);
         scheduleMethod(this);
       },
@@ -1386,10 +1680,13 @@ Page({
   },
 
   onCookingStyleInput(event: WechatMiniprogram.Input) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
+    const message =
+      event.detail.value.length > 32 ? '烹饪方式最多填写32个字' : '';
     this.setData(
       { cookingStyleInput: event.detail.value, methodConfigured: true },
       () => {
+        replaceFieldError(this, 'cookingStyle', message);
         syncLocalDraft(this);
         scheduleMethod(this);
       },
@@ -1397,7 +1694,7 @@ Page({
   },
 
   onMethodStepInput(event: WechatMiniprogram.Input) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const index = Number(event.currentTarget.dataset.index);
     if (!Number.isSafeInteger(index) || index < 0 || index > 11) return;
     const methodSteps = [...this.data.methodSteps];
@@ -1432,11 +1729,7 @@ Page({
   },
 
   onAddMethodStep() {
-    if (
-      this.data.readOnly ||
-      runtimeFor(this).writesDisabled ||
-      this.data.methodSteps.length >= 12
-    ) {
+    if (mutationIsLocked(this) || this.data.methodSteps.length >= 12) {
       return;
     }
     const methodSteps = [...this.data.methodSteps, ''];
@@ -1465,7 +1758,7 @@ Page({
   },
 
   onMoveStepUp(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const index = Number(event.currentTarget.dataset.index);
     if (
       !Number.isSafeInteger(index) ||
@@ -1512,7 +1805,7 @@ Page({
   },
 
   onMoveStepDown(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const index = Number(event.currentTarget.dataset.index);
     if (
       !Number.isSafeInteger(index) ||
@@ -1559,7 +1852,7 @@ Page({
   },
 
   onRemoveMethodStep(event: WechatMiniprogram.TouchEvent) {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     const index = Number(event.currentTarget.dataset.index);
     if (
       !Number.isSafeInteger(index) ||
@@ -1598,13 +1891,13 @@ Page({
   },
 
   onChooseImage() {
-    if (this.data.readOnly || runtimeFor(this).writesDisabled) return;
+    if (mutationIsLocked(this)) return;
     wx.navigateTo({
       url: '/pages/recipe-images/index',
       events: {
         imageSelected: (image: RecipeImageAsset) => {
           const runtime = runtimeFor(this);
-          if (runtime.destroyed || runtime.writesDisabled) return;
+          if (runtime.destroyed || mutationIsLocked(this)) return;
           this.setData({ selectedImage: image }, () => {
             syncLocalDraft(this);
             runtime.autosaves?.IMAGE.schedule(image.id);
@@ -1641,9 +1934,16 @@ Page({
 
   async onRetrySave() {
     const runtime = runtimeFor(this);
-    if (runtime.writesDisabled || this.data.readOnly) return;
+    if (
+      runtime.writesDisabled ||
+      this.data.readOnly ||
+      this.data.refreshPending
+    ) {
+      return;
+    }
     const step =
       runtime.conflictedStep ??
+      runtime.failedStep ??
       (isEditableStep(this.data.activeStep) ? this.data.activeStep : null);
     if (!step || !runtime.autosaves) return;
     if (runtime.autosaves[step].state() === 'conflict') {
@@ -1657,10 +1957,58 @@ Page({
     }
   },
 
+  onRetryRedirect(): Promise<void> {
+    const runtime = runtimeFor(this);
+    if (!runtime.pendingRedirect || !runtime.publishedDraft) {
+      return Promise.resolve();
+    }
+    return this.onPublish();
+  },
+
+  onRefreshPublishConflict(): Promise<void> {
+    const runtime = runtimeFor(this);
+    if (
+      !this.data.publishConflictRecoveryAvailable ||
+      this.data.refreshPending ||
+      runtime.destroyed ||
+      runtime.navigationOperation ||
+      runtime.publishOperation
+    ) {
+      return runtime.navigationOperation ?? Promise.resolve();
+    }
+    this.setData({ navigationPending: true });
+    const operation = refreshCanonicalVersion(this, '刷新草稿失败，请稍后重试')
+      .then((refreshed) => {
+        if (!refreshed || !canSetData(this)) return;
+        this.setData({
+          publishConflictRecoveryAvailable: false,
+          publishErrorMessage: '已刷新最新草稿，请确认后再次发布',
+        });
+      })
+      .finally(() => {
+        if (runtime.navigationOperation === operation) {
+          runtime.navigationOperation = null;
+        }
+        if (canSetData(this)) this.setData({ navigationPending: false });
+      });
+    runtime.navigationOperation = operation;
+    return operation;
+  },
+
   onPublish(): Promise<void> {
     const runtime = runtimeFor(this);
     if (runtime.publishOperation) return runtime.publishOperation;
+    if (this.data.refreshPending) return Promise.resolve();
+    if (runtime.navigationOperation || this.data.navigationPending) {
+      return runtime.navigationOperation ?? Promise.resolve();
+    }
     if (runtime.destroyed) return Promise.resolve();
+    if (
+      this.data.publishConflictRecoveryAvailable &&
+      !runtime.pendingRedirect
+    ) {
+      return Promise.resolve();
+    }
     this.setData({
       publishing: true,
       publishErrorMessage: '',

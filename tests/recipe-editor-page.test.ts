@@ -40,6 +40,7 @@ interface EditorPageData {
   estimatedMinutesInput: string;
   editorIngredients: EditorIngredient[];
   ingredientCatalog: Ingredient[];
+  ingredientLimitMessage: string;
   methodNameInput: string;
   cookingStyleInput: string;
   methodSteps: string[];
@@ -51,7 +52,10 @@ interface EditorPageData {
   publishIssues: RecipePublishIssue[];
   publishing: boolean;
   navigationPending: boolean;
+  refreshPending: boolean;
   publishErrorMessage: string;
+  redirectRetryAvailable: boolean;
+  publishConflictRecoveryAvailable: boolean;
   readOnly: boolean;
 }
 
@@ -106,6 +110,8 @@ interface EditorPageInstance {
   onPreviousStep(): Promise<void>;
   onSelectStep(event: TouchEvent): Promise<void>;
   onRetrySave(): Promise<void>;
+  onRetryRedirect(): Promise<void>;
+  onRefreshPublishConflict(): Promise<void>;
   onPublish(): Promise<void>;
   onJumpToIssue(event: TouchEvent): Promise<void>;
 }
@@ -409,6 +415,8 @@ test('renders all required editor states with native navigation and approved tok
   }
   expect(wxml).toContain('bindtap="onRetryLoad"');
   expect(wxml).toContain('bindtap="onRetrySave"');
+  expect(wxml).toContain('bindtap="onRetryRedirect"');
+  expect(wxml).toContain('bindtap="onRefreshPublishConflict"');
   expect(wxml).toContain('bindtap="onAddIngredient"');
   expect(wxml).toContain('bindtap="onToggleIngredientRequired"');
   expect(wxml).toContain('bindtap="onRemoveIngredient"');
@@ -422,6 +430,19 @@ test('renders all required editor states with native navigation and approved tok
   expect(wxml).not.toContain("fieldErrors['");
   expect(wxml).not.toContain('<bottom-nav');
   expect(wxml).not.toContain('navigation-back');
+  expect(wxml).toMatch(
+    /maxlength="40"[\s\S]*?aria-label="\u505a\u6cd5\u540d\u79f0"/,
+  );
+  expect(wxml).toMatch(
+    /maxlength="32"[\s\S]*?aria-label="\u70f9\u996a\u65b9\u5f0f"/,
+  );
+  expect(wxml).toContain(
+    'disabled="{{editorIngredients.length >= 50 || refreshPending || publishing}}"',
+  );
+  expect(wxml).toContain(
+    'disabled="{{publishing || navigationPending || refreshPending}}"',
+  );
+  expect(wxml).toContain('disabled="{{refreshPending || publishing}}"');
   expect(wxss).toMatch(/\.page-shell\s*\{[^}]*padding:[^;]*38rpx/s);
   expect(wxss).toMatch(/\.action-bar\s*\{[^}]*position:\s*fixed;/s);
   expect(wxss).toContain('env(safe-area-inset-bottom)');
@@ -660,6 +681,26 @@ test('version conflict keeps local values and blocks navigation', async () => {
   expect(page.data.activeStep).toBe('BASIC');
 });
 
+test('losing edit access during autosave moves to a consistent read-only preview', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(completeDraft(9, 1));
+  app.saveRecipeBasicInfo.mockRejectedValue(
+    new ApiError('FORBIDDEN', '无权编辑'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('无权写入', { field: 'name' }));
+
+  await page.onNextStep();
+
+  expect(page.data.readOnly).toBe(true);
+  expect(page.data.activeStep).toBe('PREVIEW');
+  expect(page.data.publishErrorMessage).toBe(
+    '你已无权编辑这份菜谱，请返回家庭菜谱',
+  );
+});
+
 test('conflict retry refreshes canonical version and preserves local values before retrying', async () => {
   const app = createAppMock();
   app.getRecipeDraft
@@ -686,6 +727,112 @@ test('conflict retry refreshes canonical version and preserves local values befo
   );
   expect(page.data.nameInput).toBe('本地菜名');
   expect(page.data.version).toBe(8);
+});
+
+test('conflict refresh merges remote non-dirty ingredients before preview and explicit publish', async () => {
+  const remoteIngredients = [
+    {
+      ingredientId: 2,
+      name: '盐',
+      quantity: 1,
+      unit: '克',
+      required: true,
+      sortOrder: 0,
+    },
+  ];
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 1))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 7),
+      name: '远端菜名',
+      ingredients: remoteIngredients,
+    });
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 8),
+      name: '本地菜名',
+      ingredients: remoteIngredients,
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('本地菜名', { field: 'name' }));
+  await page.onNextStep();
+
+  await page.onRetrySave();
+
+  expect(page.data.nameInput).toBe('本地菜名');
+  expect(page.data.editorIngredients).toEqual([
+    expect.objectContaining({
+      ingredientId: 2,
+      name: '盐',
+      quantityInput: '1',
+    }),
+  ]);
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  expect(app.publishRecipe).toHaveBeenCalledWith(9, 8);
+});
+
+test('conflict refresh preserves a separately dirty ingredient step and saves it before publish', async () => {
+  const remoteIngredients = [
+    {
+      ingredientId: 2,
+      name: '盐',
+      quantity: 1,
+      unit: '克',
+      required: true,
+      sortOrder: 0,
+    },
+  ];
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 1))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 7),
+      ingredients: remoteIngredients,
+    });
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 8),
+      name: '本地菜名',
+      ingredients: remoteIngredients,
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('本地菜名', { field: 'name' }));
+  await page.onNextStep();
+  page.onAddIngredient(touchEvent({ ingredient: ingredientCatalog[1] }));
+
+  await page.onRetrySave();
+
+  expect(
+    page.data.editorIngredients.map(({ ingredientId }) => ingredientId),
+  ).toEqual([1, 2]);
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  expect(app.saveRecipeIngredients).toHaveBeenCalledWith(9, {
+    version: 8,
+    ingredients: [
+      { ingredientId: 1, quantity: 2, unit: '个', required: true },
+      { ingredientId: 2, quantity: null, unit: '克', required: true },
+    ],
+  });
+  expect(app.publishRecipe).toHaveBeenCalledWith(9, 9);
 });
 
 test('conflict retry refuses to reuse a non-advancing refreshed version', async () => {
@@ -751,6 +898,43 @@ test('ordinary save failure retains input and can retry without duplicate snapsh
   expect(page.data.saveState).toBe('saved');
 });
 
+test('preview save failure retries the failed step before a later explicit publish', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(completeDraft(9, 1));
+  app.saveRecipeIngredients
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 2),
+      ingredients: [
+        {
+          ...completeDraft().ingredients[0],
+          quantity: 3,
+        },
+      ],
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  page.onIngredientQuantityInput(inputEvent('3', { id: 1 }));
+
+  await page.onPublish();
+
+  expect(page.data.saveState).toBe('error');
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+  expect(app.saveRecipeIngredients).toHaveBeenCalledTimes(1);
+
+  await page.onRetrySave();
+
+  expect(app.saveRecipeIngredients).toHaveBeenCalledTimes(2);
+  expect(page.data.saveState).toBe('saved');
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+
+  await page.onPublish();
+
+  expect(app.publishRecipe).toHaveBeenCalledWith(9, 2);
+});
+
 test('adds catalog ingredient, maps blank quantity to null, toggles and removes it', async () => {
   const app = createAppMock();
   app.getRecipeDraft.mockResolvedValue(incompleteDraft());
@@ -808,6 +992,63 @@ test('zero ingredient quantity stays zero instead of becoming blank or 适量', 
   expect(page.currentIngredientPayload()[0].quantity).toBe(0);
 });
 
+test('deleting an earlier ingredient rebuilds indexed errors for the remaining rows', async () => {
+  const app = createAppMock();
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'INGREDIENTS';
+  page.onAddIngredient(touchEvent({ ingredient: ingredientCatalog[1] }));
+  page.onIngredientQuantityInput(inputEvent('abc', { id: 2 }));
+
+  expect(page.data.fieldErrors['ingredients[1].quantity']).toBe(
+    '食材数量格式不正确',
+  );
+
+  page.onRemoveIngredient(touchEvent({ id: 1 }));
+
+  expect(page.data.fieldErrors['ingredients[0].quantity']).toBe(
+    '食材数量格式不正确',
+  );
+  expect(page.data.fieldErrors['ingredients[1].quantity']).toBeUndefined();
+
+  page.onIngredientQuantityInput(inputEvent('2', { id: 2 }));
+  await page.onNextStep();
+
+  expect(page.data.fieldErrors['ingredients[0].quantity']).toBeUndefined();
+  expect(page.data.activeStep).toBe('METHOD');
+});
+
+test('caps ingredients at 50 and the 51st add schedules no request', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(incompleteDraft());
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+
+  for (let id = 1; id <= 50; id += 1) {
+    page.onAddIngredient(
+      touchEvent({ id, name: `食材${String(id)}`, unit: '克' }),
+    );
+  }
+  await jest.advanceTimersByTimeAsync(800);
+  await flushMicrotasks();
+  expect(page.data.editorIngredients).toHaveLength(50);
+  expect(page.data.ingredientLimitMessage).toBe('最多可添加50种食材');
+  expect(app.saveRecipeIngredients).toHaveBeenCalledTimes(1);
+  app.saveRecipeIngredients.mockClear();
+
+  page.onAddIngredient(touchEvent({ id: 51, name: '食材51', unit: '克' }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  expect(page.data.editorIngredients).toHaveLength(50);
+  expect(page.data.ingredientLimitMessage).toBe('最多可添加50种食材');
+  expect(app.saveRecipeIngredients).not.toHaveBeenCalled();
+  page.data.activeStep = 'INGREDIENTS';
+  await page.onNextStep();
+  expect(page.data.activeStep).toBe('METHOD');
+});
+
 test('moves, adds and removes method steps without losing text', async () => {
   const app = createAppMock();
   runtime.getApp = () => app;
@@ -823,6 +1064,42 @@ test('moves, adds and removes method steps without losing text', async () => {
   expect(page.data.methodSteps).toEqual(['切番茄', '炒鸡蛋', '']);
   page.onRemoveMethodStep(touchEvent({ index: 1 }));
   expect(page.data.methodSteps).toEqual(['切番茄', '']);
+});
+
+test('method labels enforce client limits inline without autosaving or navigating', async () => {
+  const app = createAppMock();
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'METHOD';
+
+  page.onMethodNameInput(inputEvent('做'.repeat(41)));
+  page.onCookingStyleInput(inputEvent('炒'.repeat(33)));
+  page.onMethodStepInput(inputEvent('切'.repeat(161), { index: 0 }));
+  await jest.advanceTimersByTimeAsync(800);
+
+  expect(page.data.fieldErrors.methodName).toBe('做法名称最多填写40个字');
+  expect(page.data.fieldErrors.cookingStyle).toBe('烹饪方式最多填写32个字');
+  expect(page.data.fieldErrors['steps[0]']).toBe('每个步骤最多160个字');
+  expect(app.saveRecipeDefaultMethod).not.toHaveBeenCalled();
+  await page.onNextStep();
+  expect(page.data.activeStep).toBe('METHOD');
+
+  page.onMethodNameInput(inputEvent('做'.repeat(40)));
+  page.onCookingStyleInput(inputEvent('炒'.repeat(32)));
+  page.onMethodStepInput(inputEvent('切'.repeat(160), { index: 0 }));
+  await page.onNextStep();
+
+  expect(page.data.fieldErrors.methodName).toBeUndefined();
+  expect(page.data.fieldErrors.cookingStyle).toBeUndefined();
+  expect(app.saveRecipeDefaultMethod).toHaveBeenCalledWith(
+    9,
+    expect.objectContaining({
+      name: '做'.repeat(40),
+      cookingStyle: '炒'.repeat(32),
+    }),
+  );
+  expect(page.data.activeStep).toBe('IMAGE');
 });
 
 test('image selection uses the exact opener event metadata and image save payload', async () => {
@@ -1008,13 +1285,172 @@ test('double publish shares one operation and redirect failure retries only navi
   expect(page.data.publishErrorMessage).toBe(
     '菜谱已发布，暂时无法返回，请重试',
   );
+  expect(page.data.redirectRetryAvailable).toBe(true);
+  expect(page.data.readOnly).toBe(true);
   runtime.wx?.redirectTo.mockImplementationOnce((options) => {
     options.success?.();
   });
-  await page.onPublish();
+  await page.onRetryRedirect();
 
   expect(app.publishRecipe).toHaveBeenCalledTimes(1);
   expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(2);
+  expect(page.data.redirectRetryAvailable).toBe(false);
+});
+
+test('publish conflict refreshes non-dirty canonical controls without auto-publishing', async () => {
+  const remoteDraft: RecipeDraft = {
+    ...completeDraft(9, 9),
+    name: '远端新菜名',
+    ingredients: [
+      {
+        ingredientId: 2,
+        name: '盐',
+        quantity: 1,
+        unit: '克',
+        required: true,
+        sortOrder: 0,
+      },
+    ],
+  };
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(remoteDraft);
+  app.publishRecipe
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...remoteDraft,
+      version: 10,
+      status: 'PUBLISHED',
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+
+  await page.onPublish();
+
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+  expect(runtime.wx?.redirectTo).not.toHaveBeenCalled();
+
+  await page.onRefreshPublishConflict();
+
+  expect(page.data.version).toBe(9);
+  expect(page.data.nameInput).toBe('远端新菜名');
+  expect(page.data.editorIngredients).toEqual([
+    expect.objectContaining({
+      ingredientId: 2,
+      name: '盐',
+      quantityInput: '1',
+    }),
+  ]);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+
+  await page.onPublish();
+
+  expect(app.publishRecipe).toHaveBeenNthCalledWith(2, 9, 9);
+  expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(1);
+});
+
+test('publish conflict refresh locks delayed mutation callbacks until canonical merge completes', async () => {
+  const remote = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockReturnValueOnce(remote.promise);
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  const immediateSetData = page.setData.bind(page);
+  let delayedMutationCallback: (() => void) | undefined;
+  page.setData = (update, callback) => {
+    Object.assign(page.data, update);
+    if (callback && update.nameInput !== undefined) {
+      delayedMutationCallback = callback;
+      return;
+    }
+    callback?.();
+  };
+
+  const refreshing = page.onRefreshPublishConflict();
+  await flushMicrotasks();
+  expect(page.data.refreshPending).toBe(true);
+
+  page.onBasicInput(inputEvent('刷新中的迟到输入', { field: 'name' }));
+  remote.resolve({ ...completeDraft(9, 9), name: '远端最新菜名' });
+  await refreshing;
+
+  delayedMutationCallback?.();
+  await jest.advanceTimersByTimeAsync(800);
+  expect(delayedMutationCallback).toBeUndefined();
+  expect(page.data.refreshPending).toBe(false);
+  expect(page.data.nameInput).toBe('远端最新菜名');
+  expect(app.saveRecipeBasicInfo).not.toHaveBeenCalled();
+  page.setData = immediateSetData;
+});
+
+test('same-tick previous then publish never publishes while navigation owns the page', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(completeDraft(9, 8));
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+
+  const moving = page.onPreviousStep();
+  const publishing = page.onPublish();
+  await Promise.all([moving, publishing]);
+
+  expect(page.data.activeStep).toBe('IMAGE');
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+});
+
+test('publish lock ignores late mutation events after the flush has started', async () => {
+  const published = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(completeDraft(9, 8));
+  app.publishRecipe.mockReturnValue(published.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onChooseImage();
+  const imageSelected =
+    runtime.wx?.navigateTo.mock.calls[0][0].events?.imageSelected;
+  page.data.activeStep = 'PREVIEW';
+
+  const publishing = page.onPublish();
+  await flushMicrotasks();
+  expect(page.data.publishing).toBe(true);
+  expect(app.publishRecipe).toHaveBeenCalledWith(9, 8);
+
+  page.onBasicInput(inputEvent('迟到菜名', { field: 'name' }));
+  page.onAddIngredient(touchEvent({ ingredient: ingredientCatalog[1] }));
+  page.onMethodNameInput(inputEvent('迟到做法'));
+  imageSelected?.(approvedImage(6));
+
+  expect(page.data.nameInput).toBe('番茄炒蛋');
+  expect(
+    page.data.editorIngredients.map(({ ingredientId }) => ingredientId),
+  ).toEqual([1]);
+  expect(page.data.methodNameInput).toBe('家常做法');
+  expect(page.data.selectedImage?.id).toBe(4);
+  expect(app.saveRecipeBasicInfo).not.toHaveBeenCalled();
+  expect(app.saveRecipeIngredients).not.toHaveBeenCalled();
+  expect(app.saveRecipeDefaultMethod).not.toHaveBeenCalled();
+  expect(app.saveRecipeImage).not.toHaveBeenCalled();
+
+  published.resolve({ ...completeDraft(9, 9), status: 'PUBLISHED' });
+  await publishing;
 });
 
 test('server validation details become exact jumpable issues', async () => {

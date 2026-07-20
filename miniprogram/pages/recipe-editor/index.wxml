@@ -30,6 +30,8 @@
         <button
           wx:if="{{saveState === 'error' || saveState === 'conflict'}}"
           class="inline-retry"
+          loading="{{refreshPending}}"
+          disabled="{{refreshPending}}"
           bindtap="onRetrySave"
         >{{saveState === 'conflict' ? '刷新并重试' : '重试保存'}}</button>
       </view>
@@ -45,7 +47,21 @@
       class="feedback-banner"
       aria-role="alert"
       aria-live="polite"
-    >{{publishErrorMessage}}</view>
+    >
+      <text>{{publishErrorMessage}}</text>
+      <button
+        wx:if="{{redirectRetryAvailable}}"
+        class="inline-retry"
+        bindtap="onRetryRedirect"
+      >返回家庭菜谱</button>
+      <button
+        wx:if="{{publishConflictRecoveryAvailable}}"
+        class="inline-retry"
+        loading="{{refreshPending}}"
+        disabled="{{refreshPending}}"
+        bindtap="onRefreshPublishConflict"
+      >刷新草稿</button>
+    </view>
 
     <view wx:if="{{catalogErrorMessage}}" class="catalog-note" aria-live="polite">
       {{catalogErrorMessage}}
@@ -59,7 +75,7 @@
         aria-role="tab"
         aria-label="{{item.label}}步骤"
         aria-selected="{{activeStep === item.key}}"
-        disabled="{{readOnly || navigationPending || publishing}}"
+        disabled="{{readOnly || navigationPending || publishing || refreshPending}}"
         data-step="{{item.key}}"
         bindtap="onSelectStep"
       >
@@ -83,6 +99,7 @@
           placeholder="例如：番茄炒蛋"
           placeholder-class="input-placeholder"
           aria-label="菜名"
+          disabled="{{refreshPending || publishing}}"
           data-field="name"
           bindinput="onBasicInput"
         />
@@ -98,6 +115,7 @@
           placeholder="例如：家常菜"
           placeholder-class="input-placeholder"
           aria-label="菜谱分类"
+          disabled="{{refreshPending || publishing}}"
           data-field="category"
           bindinput="onBasicInput"
         />
@@ -113,6 +131,7 @@
           placeholder="例如：酸甜"
           placeholder-class="input-placeholder"
           aria-label="菜谱口味"
+          disabled="{{refreshPending || publishing}}"
           data-field="flavor"
           bindinput="onBasicInput"
         />
@@ -129,6 +148,7 @@
             placeholder="2"
             placeholder-class="input-placeholder"
             aria-label="菜谱份量"
+            disabled="{{refreshPending || publishing}}"
             data-field="servings"
             bindinput="onBasicInput"
           />
@@ -143,6 +163,7 @@
             placeholder="15"
             placeholder-class="input-placeholder"
             aria-label="预计分钟"
+            disabled="{{refreshPending || publishing}}"
             data-field="estimatedMinutes"
             bindinput="onBasicInput"
           />
@@ -165,9 +186,16 @@
           data-id="{{item.id}}"
           data-name="{{item.name}}"
           data-unit="{{item.defaultUnit}}"
+          disabled="{{editorIngredients.length >= 50 || refreshPending || publishing}}"
           bindtap="onAddIngredient"
         >+ {{item.name}}</button>
       </scroll-view>
+
+      <text
+        wx:if="{{ingredientLimitMessage}}"
+        class="field-error"
+        aria-role="status"
+      >{{ingredientLimitMessage}}</text>
 
       <view wx:if="{{!editorIngredients.length}}" class="empty-state">
         <text class="empty-title">还没有添加食材</text>
@@ -184,6 +212,7 @@
             <text class="ingredient-name">{{item.name}}</text>
             <button
               class="row-action"
+              disabled="{{refreshPending || publishing}}"
               aria-label="移除{{item.name}}"
               data-id="{{item.ingredientId}}"
               bindtap="onRemoveIngredient"
@@ -197,6 +226,7 @@
               placeholder="适量"
               placeholder-class="input-placeholder"
               aria-label="{{item.name}}数量，留空为适量"
+              disabled="{{refreshPending || publishing}}"
               data-id="{{item.ingredientId}}"
               bindinput="onIngredientQuantityInput"
             />
@@ -205,11 +235,13 @@
               value="{{item.unit}}"
               maxlength="17"
               aria-label="{{item.name}}单位"
+              disabled="{{refreshPending || publishing}}"
               data-id="{{item.ingredientId}}"
               bindinput="onIngredientUnitInput"
             />
             <button
               class="required-toggle {{item.required ? 'required-toggle--active' : ''}}"
+              disabled="{{refreshPending || publishing}}"
               aria-label="{{item.name}}{{item.required ? '是必需食材' : '不是必需食材'}}"
               aria-checked="{{item.required}}"
               data-id="{{item.ingredientId}}"
@@ -239,24 +271,30 @@
       <label class="field-row">
         <text class="field-label">做法名称（可选）</text>
         <input
-          class="text-input"
+          class="text-input {{fieldErrors.methodName ? 'text-input--error' : ''}}"
+          maxlength="40"
           value="{{methodNameInput}}"
           placeholder="例如：家常做法"
           placeholder-class="input-placeholder"
           aria-label="做法名称"
+          disabled="{{refreshPending || publishing}}"
           bindinput="onMethodNameInput"
         />
+        <text wx:if="{{fieldErrors.methodName}}" class="field-error" aria-role="alert">{{fieldErrors.methodName}}</text>
       </label>
       <label class="field-row">
         <text class="field-label">烹饪方式（可选）</text>
         <input
-          class="text-input"
+          class="text-input {{fieldErrors.cookingStyle ? 'text-input--error' : ''}}"
+          maxlength="32"
           value="{{cookingStyleInput}}"
           placeholder="例如：炒"
           placeholder-class="input-placeholder"
           aria-label="烹饪方式"
+          disabled="{{refreshPending || publishing}}"
           bindinput="onCookingStyleInput"
         />
+        <text wx:if="{{fieldErrors.cookingStyle}}" class="field-error" aria-role="alert">{{fieldErrors.cookingStyle}}</text>
       </label>
 
       <view wx:if="{{!methodStepRows.length}}" class="empty-state">
@@ -275,26 +313,28 @@
             placeholder="填写这一步怎么做"
             placeholder-class="input-placeholder"
             aria-label="第{{index + 1}}步做法"
+            disabled="{{refreshPending || publishing}}"
             data-index="{{index}}"
             bindinput="onMethodStepInput"
           ></textarea>
           <view class="method-actions">
             <button
               class="row-action"
-              disabled="{{index === 0}}"
+              disabled="{{index === 0 || refreshPending || publishing}}"
               aria-label="第{{index + 1}}步上移"
               data-index="{{index}}"
               bindtap="onMoveStepUp"
             >上移</button>
             <button
               class="row-action"
-              disabled="{{index === methodStepRows.length - 1}}"
+              disabled="{{index === methodStepRows.length - 1 || refreshPending || publishing}}"
               aria-label="第{{index + 1}}步下移"
               data-index="{{index}}"
               bindtap="onMoveStepDown"
             >下移</button>
             <button
               class="row-action row-action--danger"
+              disabled="{{refreshPending || publishing}}"
               aria-label="删除第{{index + 1}}步"
               data-index="{{index}}"
               bindtap="onRemoveMethodStep"
@@ -307,7 +347,7 @@
       </view>
       <button
         class="add-step-button"
-        disabled="{{methodStepRows.length >= 12}}"
+        disabled="{{methodStepRows.length >= 12 || refreshPending || publishing}}"
         bindtap="onAddMethodStep"
       >＋ 添加步骤</button>
     </view>
@@ -333,7 +373,11 @@
         <text class="empty-title">还没有选择图片</text>
         <text class="empty-copy">图库不会提供上传或拍照入口</text>
       </view>
-      <button class="choose-image-button" bindtap="onChooseImage">
+      <button
+        class="choose-image-button"
+        disabled="{{refreshPending || publishing}}"
+        bindtap="onChooseImage"
+      >
         {{selectedImage ? '重新选择图片' : '从已审核图库选择'}}
       </button>
     </view>
@@ -393,20 +437,20 @@
 <view wx:if="{{draft && !loading && !loadErrorMessage && !readOnly}}" class="action-bar">
   <button
     class="action-button action-button--secondary"
-    disabled="{{navigationPending || publishing}}"
+    disabled="{{navigationPending || publishing || refreshPending}}"
     bindtap="onPreviousStep"
   >{{activeStep === 'BASIC' ? '返回' : '上一步'}}</button>
   <button
     wx:if="{{activeStep !== 'PREVIEW'}}"
     class="action-button action-button--primary"
-    disabled="{{navigationPending || publishing}}"
+    disabled="{{navigationPending || publishing || refreshPending}}"
     bindtap="onNextStep"
   >{{navigationPending ? '保存中' : '下一步'}}</button>
   <button
     wx:else
     class="action-button action-button--primary"
     loading="{{publishing}}"
-    disabled="{{publishing}}"
+    disabled="{{publishing || navigationPending || refreshPending}}"
     bindtap="onPublish"
   >{{publishing ? '发布中' : '发布菜谱'}}</button>
 </view>

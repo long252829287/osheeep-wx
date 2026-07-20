@@ -16,6 +16,7 @@ interface ImagePageData {
   visibleAssets: RecipeImageAsset[];
   selectedId: number;
   selectingId: number;
+  selectionLocked: boolean;
   interactionErrorMessage: string;
 }
 
@@ -179,6 +180,8 @@ test('renders only approved API image surfaces, provenance and accessible states
   expect(wxml).toContain('bindtap="onSelectImage"');
   expect(wxml).toContain('bindtap="onMarkImage"');
   expect(wxml).toContain('bindtap="onCopySource"');
+  expect(wxml).toContain('disabled="{{selectionLocked}}"');
+  expect(wxml).toContain('disabled="{{selectionLocked || selectingId !== 0}}"');
   expect(wxml).toContain('aria-role="alert"');
   expect(wxml).toContain('aria-live="polite"');
   expect(wxml).not.toMatch(/\srole="/);
@@ -265,10 +268,11 @@ test('selects only a currently visible API asset', async () => {
   expect(runtime.wx?.navigateBack).not.toHaveBeenCalled();
 });
 
-test('duplicate selection emits once and retries failed navigateBack without re-emitting', async () => {
+test('failed return locks the first emitted image and retries it without re-emitting', async () => {
   const image = approvedImage(4);
+  const otherImage = approvedImage(5, '青椒炒肉');
   const app: AppMock = {
-    listRecipeImages: jest.fn().mockResolvedValue([image]),
+    listRecipeImages: jest.fn().mockResolvedValue([image, otherImage]),
   };
   const channel: EventChannelMock = { emit: jest.fn() };
   runtime.getApp = () => app;
@@ -279,6 +283,15 @@ test('duplicate selection emits once and retries failed navigateBack without re-
   await page.onLoad();
 
   page.onSelectImage({ currentTarget: { dataset: { id: 4 } } });
+  expect(page.data.selectionLocked).toBe(true);
+  expect(page.data.selectedId).toBe(4);
+
+  page.onSearchInput({ detail: { value: '青椒' } });
+  page.onMarkImage({ currentTarget: { dataset: { id: 5 } } });
+
+  expect(page.data.searchQuery).toBe('');
+  expect(page.data.selectedId).toBe(4);
+
   page.onSelectImage({ currentTarget: { dataset: { id: 4 } } });
 
   expect(channel.emit).toHaveBeenCalledTimes(1);

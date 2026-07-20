@@ -10,6 +10,7 @@ export interface RecipeAutosave<T> {
   dispose(): void;
   snapshot(): T | undefined;
   state(): RecipeAutosaveState;
+  dirty(): boolean;
 }
 
 export interface RecipeAutosaveOptions<T> {
@@ -194,5 +195,7 @@ export const createRecipeAutosave = <T>(
     },
     snapshot: (): T | undefined => latest,
     state: (): RecipeAutosaveState => currentState,
+    dirty: (): boolean =>
+      !disposed && latest !== undefined && latestGeneration !== savedGeneration,
   };
 };

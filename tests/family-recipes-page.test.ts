@@ -509,6 +509,59 @@ test('does not navigate when create resolves while hidden and resumes the same d
   );
 });
 
+test.each(['retry', 'create'] as const)(
+  'does not auto-navigate a create that crosses hide and show, then resumes it via %s',
+  async (resumeAction) => {
+    const created = deferred<RecipeDraft>();
+    const app = createAppMock();
+    app.createRecipeDraft.mockReturnValue(created.promise);
+    runtime.getApp = () => app;
+    const page = createPageInstance(await loadPage());
+    await page.onShow();
+
+    const creating = page.onCreateDraft();
+    page.onHide();
+    await page.onShow();
+    created.resolve(draft(56));
+    await creating;
+
+    expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+    expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+    expect(page.data.pendingDraftId).toBe(56);
+    expect(page.data.errorSource).toBe('OPEN_DRAFT');
+    expect(page.data.errorMessage).toBe('草稿已新建，可继续编辑');
+
+    if (resumeAction === 'retry') await page.onRetry();
+    else await page.onCreateDraft();
+
+    expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+    expect(runtime.wx?.navigateTo).toHaveBeenCalledTimes(1);
+    expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/pages/recipe-editor/index?id=56' }),
+    );
+  },
+);
+
+test('does not invalidate an in-flight create when onShow repeats while already visible', async () => {
+  const created = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.createRecipeDraft.mockReturnValue(created.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadPage());
+  await page.onShow();
+
+  const creating = page.onCreateDraft();
+  await page.onShow();
+  created.resolve(draft(57));
+  await creating;
+
+  expect(app.createRecipeDraft).toHaveBeenCalledTimes(1);
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledTimes(1);
+  expect(runtime.wx?.navigateTo).toHaveBeenCalledWith(
+    expect.objectContaining({ url: '/pages/recipe-editor/index?id=57' }),
+  );
+});
+
 test('does not update or navigate when create resolves after unload', async () => {
   const created = deferred<RecipeDraft>();
   const app = createAppMock();

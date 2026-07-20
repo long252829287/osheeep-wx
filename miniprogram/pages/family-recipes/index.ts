@@ -19,6 +19,7 @@ interface DeferredFeedback {
 interface FamilyRecipesRuntime {
   visible: boolean;
   destroyed: boolean;
+  lifecycleGeneration: number;
   listRequestToken: number;
   editorOperationInFlight: boolean;
   pendingDraftId: number | null;
@@ -40,6 +41,7 @@ const runtimeFor = (page: object): FamilyRecipesRuntime => {
   const created: FamilyRecipesRuntime = {
     visible: false,
     destroyed: false,
+    lifecycleGeneration: 0,
     listRequestToken: 0,
     editorOperationInFlight: false,
     pendingDraftId: null,
@@ -88,6 +90,7 @@ Page({
   async onShow() {
     const runtime = runtimeFor(this);
     if (runtime.destroyed) return;
+    if (!runtime.visible) runtime.lifecycleGeneration += 1;
     runtime.visible = true;
 
     if (runtime.pendingDraftId !== null) {
@@ -126,6 +129,7 @@ Page({
   onHide() {
     const runtime = runtimeFor(this);
     runtime.visible = false;
+    runtime.lifecycleGeneration += 1;
     runtime.listRequestToken += 1;
   },
 
@@ -133,6 +137,7 @@ Page({
     const runtime = runtimeFor(this);
     runtime.visible = false;
     runtime.destroyed = true;
+    runtime.lifecycleGeneration += 1;
     runtime.listRequestToken += 1;
     runtime.deferredFeedback = null;
   },
@@ -249,6 +254,7 @@ Page({
       return;
     }
 
+    const createGeneration = runtime.lifecycleGeneration;
     runtime.editorOperationInFlight = true;
     runtime.deferredFeedback = null;
     this.setData({
@@ -266,12 +272,23 @@ Page({
 
       runtime.pendingDraftId = created.id;
       runtime.retryOpenRecipeId = created.id;
-      if (!runtime.visible) {
+      if (
+        !runtime.visible ||
+        createGeneration !== runtime.lifecycleGeneration
+      ) {
         runtime.editorOperationInFlight = false;
         runtime.deferredFeedback = {
           source: 'OPEN_DRAFT',
           message: '草稿已新建，可继续编辑',
         };
+        if (runtime.visible) {
+          this.setData({
+            creating: false,
+            pendingDraftId: created.id,
+            errorMessage: runtime.deferredFeedback.message,
+            errorSource: runtime.deferredFeedback.source,
+          });
+        }
         return;
       }
       await this.finishEditorNavigation(created.id, true);

@@ -417,6 +417,9 @@ test('renders all required editor states with native navigation and approved tok
   expect(wxml).toContain('bindtap="onRetrySave"');
   expect(wxml).toContain('bindtap="onRetryRedirect"');
   expect(wxml).toContain('bindtap="onRefreshPublishConflict"');
+  expect(wxml).toContain(
+    'wx:if="{{publishErrorMessage || redirectRetryAvailable || publishConflictRecoveryAvailable}}"',
+  );
   expect(wxml).toContain('bindtap="onAddIngredient"');
   expect(wxml).toContain('bindtap="onToggleIngredientRequired"');
   expect(wxml).toContain('bindtap="onRemoveIngredient"');
@@ -437,12 +440,20 @@ test('renders all required editor states with native navigation and approved tok
     /maxlength="32"[\s\S]*?aria-label="\u70f9\u996a\u65b9\u5f0f"/,
   );
   expect(wxml).toContain(
-    'disabled="{{editorIngredients.length >= 50 || refreshPending || publishing}}"',
+    'disabled="{{editorIngredients.length >= 50 || navigationPending || refreshPending || publishing}}"',
   );
   expect(wxml).toContain(
     'disabled="{{publishing || navigationPending || refreshPending}}"',
   );
-  expect(wxml).toContain('disabled="{{refreshPending || publishing}}"');
+  expect(wxml).toContain(
+    'disabled="{{navigationPending || refreshPending || publishing}}"',
+  );
+  expect(wxml).toContain(
+    "wx:if=\"{{saveState === 'error' || saveState === 'conflict'}}\"",
+  );
+  expect(wxml).toMatch(
+    /disabled="{{publishing \|\| navigationPending \|\| refreshPending}}"[\s\S]*?bindtap="onRetrySave"/,
+  );
   expect(wxss).toMatch(/\.page-shell\s*\{[^}]*padding:[^;]*38rpx/s);
   expect(wxss).toMatch(/\.action-bar\s*\{[^}]*position:\s*fixed;/s);
   expect(wxss).toContain('env(safe-area-inset-bottom)');
@@ -857,6 +868,31 @@ test('conflict retry refuses to reuse a non-advancing refreshed version', async 
   expect(page.data.nameInput).toBe('本地菜名');
 });
 
+test('retry save cannot start conflict recovery while navigation owns the page', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(incompleteDraft(9, 1))
+    .mockResolvedValueOnce(incompleteDraft(9, 7));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({ ...incompleteDraft(9, 8), name: '本地菜名' });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('本地菜名', { field: 'name' }));
+  await page.onNextStep();
+
+  const moving = page.onNextStep();
+  const retrying = page.onRetrySave();
+  await Promise.all([moving, retrying]);
+
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(1);
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(1);
+  expect(page.data.activeStep).toBe('BASIC');
+});
+
 test('double next shares one navigation guard and advances exactly one step', async () => {
   const saved = deferred<RecipeDraft>();
   const app = createAppMock();
@@ -874,6 +910,30 @@ test('double next shares one navigation guard and advances exactly one step', as
 
   expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(1);
   expect(page.data.activeStep).toBe('INGREDIENTS');
+});
+
+test('navigation pending rejects a same-tick mutation that missed validation and flush', async () => {
+  const saved = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(incompleteDraft(9, 1));
+  app.saveRecipeBasicInfo.mockReturnValue(saved.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('已接受的菜名', { field: 'name' }));
+
+  const moving = page.onNextStep();
+  page.onBasicInput(inputEvent('菜'.repeat(41), { field: 'name' }));
+  saved.resolve({ ...incompleteDraft(9, 2), name: '已接受的菜名' });
+  await moving;
+
+  expect(page.data.activeStep).toBe('INGREDIENTS');
+  expect(page.data.nameInput).toBe('已接受的菜名');
+  expect(page.data.fieldErrors.name).toBeUndefined();
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledWith(
+    9,
+    expect.objectContaining({ name: '已接受的菜名' }),
+  );
 });
 
 test('ordinary save failure retains input and can retry without duplicate snapshots', async () => {
@@ -895,6 +955,49 @@ test('ordinary save failure retains input and can retry without duplicate snapsh
   await page.onRetrySave();
   expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(2);
   expect(page.data.version).toBe(2);
+  expect(page.data.saveState).toBe('saved');
+});
+
+test('another coordinator cannot hide the first failed step retry state', async () => {
+  const ingredientSave = deferred<RecipeDraft>();
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(incompleteDraft(9, 1));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ ...incompleteDraft(9, 3), name: '本地菜名' });
+  app.saveRecipeIngredients.mockReturnValueOnce(ingredientSave.promise);
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('本地菜名', { field: 'name' }));
+  await page.onNextStep();
+
+  expect(page.data.saveState).toBe('error');
+  page.onAddIngredient(touchEvent({ ingredient: ingredientCatalog[1] }));
+  expect(page.data.saveState).toBe('error');
+  await jest.advanceTimersByTimeAsync(800);
+  await flushMicrotasks();
+  expect(page.data.saveState).toBe('error');
+
+  ingredientSave.resolve({
+    ...incompleteDraft(9, 2),
+    ingredients: [
+      {
+        ingredientId: 2,
+        name: '盐',
+        quantity: null,
+        unit: '克',
+        required: true,
+        sortOrder: 0,
+      },
+    ],
+  });
+  await flushMicrotasks();
+  expect(page.data.saveState).toBe('error');
+
+  await page.onRetrySave();
+
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(2);
   expect(page.data.saveState).toBe('saved');
 });
 
@@ -1225,6 +1328,43 @@ test.each(['PUBLISHED', 'ARCHIVED'] as const)(
   },
 );
 
+test('accepted mutations establish every autosave snapshot before deferred setData callbacks', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(incompleteDraft(9, 1));
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  const immediateSetData = page.setData.bind(page);
+  const delayedCallbacks: Array<() => void> = [];
+  page.setData = (update, callback) => {
+    Object.assign(page.data, update);
+    if (callback) delayedCallbacks.push(callback);
+  };
+
+  page.onBasicInput(inputEvent('番茄炒蛋', { field: 'name' }));
+  page.onBasicInput(inputEvent('家常菜', { field: 'category' }));
+  page.onBasicInput(inputEvent('酸甜', { field: 'flavor' }));
+  page.onBasicInput(inputEvent('2', { field: 'servings' }));
+  page.onBasicInput(inputEvent('15', { field: 'estimatedMinutes' }));
+  page.onAddIngredient(touchEvent({ ingredient: ingredientCatalog[0] }));
+  page.onMethodStepInput(inputEvent('切番茄', { index: 0 }));
+  page.onChooseImage();
+  runtime.wx?.navigateTo.mock.calls[0][0].events?.imageSelected?.(
+    approvedImage(4),
+  );
+  page.data.activeStep = 'PREVIEW';
+
+  await page.onPublish();
+
+  expect(delayedCallbacks).toEqual([]);
+  expect(app.saveRecipeBasicInfo.mock.calls[0][1].version).toBe(1);
+  expect(app.saveRecipeIngredients.mock.calls[0][1].version).toBe(2);
+  expect(app.saveRecipeDefaultMethod.mock.calls[0][1].version).toBe(3);
+  expect(app.saveRecipeImage).toHaveBeenCalledWith(9, 4, 4);
+  expect(app.publishRecipe).toHaveBeenCalledWith(9, 5);
+  page.setData = immediateSetData;
+});
+
 test('publish flushes every pending step in version order then publishes once', async () => {
   const app = createAppMock();
   app.getRecipeDraft.mockResolvedValue(incompleteDraft(9, 5));
@@ -1356,6 +1496,90 @@ test('publish conflict refreshes non-dirty canonical controls without auto-publi
   expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(1);
 });
 
+test('publish conflict recovery stays visible after leaving and returning to preview', async () => {
+  const remoteDraft = completeDraft(9, 9);
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce(remoteDraft);
+  app.publishRecipe
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({
+      ...remoteDraft,
+      version: 10,
+      status: 'PUBLISHED',
+    });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  await page.onPreviousStep();
+  expect(page.data.activeStep).toBe('IMAGE');
+  expect(page.data.publishErrorMessage).toBe('');
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  await page.onNextStep();
+  expect(page.data.activeStep).toBe('PREVIEW');
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+
+  await page.onRefreshPublishConflict();
+
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  await page.onPublish();
+  expect(app.publishRecipe).toHaveBeenNthCalledWith(2, 9, 9);
+  expect(runtime.wx?.redirectTo).toHaveBeenCalledTimes(1);
+});
+
+test('mutation accepted before a conflict refresh is dirty even when its setData callback is delayed', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 9),
+      name: '远端最新菜名',
+    });
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  const immediateSetData = page.setData.bind(page);
+  let delayedMutationCallback: (() => void) | undefined;
+  page.setData = (update, callback) => {
+    Object.assign(page.data, update);
+    if (callback && update.nameInput !== undefined) {
+      delayedMutationCallback = callback;
+      return;
+    }
+    callback?.();
+  };
+  page.onBasicInput(inputEvent('刷新前的本地菜名', { field: 'name' }));
+
+  await page.onRefreshPublishConflict();
+  delayedMutationCallback?.();
+  await jest.advanceTimersByTimeAsync(800);
+
+  expect(delayedMutationCallback).toBeUndefined();
+  expect(page.data.nameInput).toBe('刷新前的本地菜名');
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledWith(
+    9,
+    expect.objectContaining({
+      version: 9,
+      name: '刷新前的本地菜名',
+    }),
+  );
+  expect(app.publishRecipe).toHaveBeenCalledTimes(1);
+  page.setData = immediateSetData;
+});
+
 test('publish conflict refresh locks delayed mutation callbacks until canonical merge completes', async () => {
   const remote = deferred<RecipeDraft>();
   const app = createAppMock();
@@ -1399,6 +1623,57 @@ test('publish conflict refresh locks delayed mutation callbacks until canonical 
   page.setData = immediateSetData;
 });
 
+test('publish conflict refresh losing access removes recovery and never fetches again', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockRejectedValueOnce(new ApiError('FORBIDDEN', '无权访问'));
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  expect(page.data.publishConflictRecoveryAvailable).toBe(true);
+  await page.onRefreshPublishConflict();
+
+  expect(page.data.readOnly).toBe(true);
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+  await page.onRefreshPublishConflict();
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+});
+
+test('publish conflict refresh to a non-draft removes recovery and never fetches again', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 8))
+    .mockResolvedValueOnce({
+      ...completeDraft(9, 9),
+      status: 'PUBLISHED',
+    });
+  app.publishRecipe.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+  );
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.data.activeStep = 'PREVIEW';
+  await page.onPublish();
+
+  await page.onRefreshPublishConflict();
+
+  expect(page.data.readOnly).toBe(true);
+  expect(page.data.activeStep).toBe('PREVIEW');
+  expect(page.data.publishConflictRecoveryAvailable).toBe(false);
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+  await page.onRefreshPublishConflict();
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(2);
+});
+
 test('same-tick previous then publish never publishes while navigation owns the page', async () => {
   const app = createAppMock();
   app.getRecipeDraft.mockResolvedValue(completeDraft(9, 8));
@@ -1412,6 +1687,32 @@ test('same-tick previous then publish never publishes while navigation owns the 
   await Promise.all([moving, publishing]);
 
   expect(page.data.activeStep).toBe('IMAGE');
+  expect(app.publishRecipe).not.toHaveBeenCalled();
+});
+
+test('retry save cannot start conflict recovery while publish owns the page', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft
+    .mockResolvedValueOnce(completeDraft(9, 1))
+    .mockResolvedValueOnce(completeDraft(9, 7));
+  app.saveRecipeBasicInfo
+    .mockRejectedValueOnce(
+      new ApiError('DINNER_RECIPE_VERSION_CONFLICT', '冲突'),
+    )
+    .mockResolvedValueOnce({ ...completeDraft(9, 8), name: '本地菜名' });
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  page.onBasicInput(inputEvent('本地菜名', { field: 'name' }));
+  await page.onNextStep();
+  page.data.activeStep = 'PREVIEW';
+
+  const publishing = page.onPublish();
+  const retrying = page.onRetrySave();
+  await Promise.all([publishing, retrying]);
+
+  expect(app.getRecipeDraft).toHaveBeenCalledTimes(1);
+  expect(app.saveRecipeBasicInfo).toHaveBeenCalledTimes(1);
   expect(app.publishRecipe).not.toHaveBeenCalled();
 });
 
@@ -1552,6 +1853,34 @@ test('onHide records flush failure and unload prevents late setData or navigatio
   expect(JSON.stringify(page.data)).toBe(snapshot);
   expect(runtime.wx?.navigateBack).not.toHaveBeenCalled();
   expect(runtime.wx?.redirectTo).not.toHaveBeenCalled();
+});
+
+test('unload leaves no accepted mutation callback that can change data later', async () => {
+  const app = createAppMock();
+  app.getRecipeDraft.mockResolvedValue(incompleteDraft(9, 1));
+  runtime.getApp = () => app;
+  const page = createPageInstance(await loadEditorPage());
+  await page.onLoad({ id: '9' });
+  const immediateSetData = page.setData.bind(page);
+  const delayedCallbacks: Array<() => void> = [];
+  page.setData = (update, callback) => {
+    Object.assign(page.data, update);
+    if (callback) delayedCallbacks.push(callback);
+  };
+  page.onBasicInput(inputEvent('菜'.repeat(41), { field: 'name' }));
+
+  page.onUnload();
+  const snapshot = JSON.stringify(page.data);
+  delayedCallbacks.forEach((callback) => callback());
+  await jest.advanceTimersByTimeAsync(800);
+  await flushMicrotasks();
+
+  expect(delayedCallbacks).toEqual([]);
+  expect(JSON.stringify(page.data)).toBe(snapshot);
+  expect(app.saveRecipeBasicInfo).not.toHaveBeenCalled();
+  expect(runtime.wx?.navigateBack).not.toHaveBeenCalled();
+  expect(runtime.wx?.redirectTo).not.toHaveBeenCalled();
+  page.setData = immediateSetData;
 });
 
 test('onUnload reuses the shared flush path before disposing without writing page data', async () => {

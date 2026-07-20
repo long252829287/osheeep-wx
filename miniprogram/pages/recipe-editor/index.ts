@@ -207,6 +207,8 @@ const mutationIsLocked = (page: EditorPageContext): boolean => {
     page.data.readOnly ||
     runtime.writesDisabled ||
     page.data.publishing ||
+    page.data.navigationPending ||
+    runtime.navigationOperation !== null ||
     page.data.refreshPending
   );
 };
@@ -762,6 +764,7 @@ const markAccessLost = (page: EditorPageContext, error: unknown): void => {
     page.setData({
       readOnly: true,
       activeStep: 'PREVIEW',
+      publishConflictRecoveryAvailable: false,
       publishErrorMessage:
         errorCodeOf(error) === 'DINNER_RECIPE_NOT_FOUND'
           ? '这份菜谱已不存在，请返回家庭菜谱'
@@ -796,26 +799,47 @@ const enqueueWrite = (
 };
 
 const createStepAutosaves = (page: EditorPageContext): AutosaveBundle => {
+  const queuedFailure = (): {
+    step: EditableRecipeStep;
+    state: 'error' | 'conflict';
+  } | null => {
+    const autosaves = runtimeFor(page).autosaves;
+    if (!autosaves) return null;
+    for (const candidate of [
+      'BASIC',
+      'INGREDIENTS',
+      'METHOD',
+      'IMAGE',
+    ] as const) {
+      const state = autosaves[candidate].state();
+      if (state === 'error' || state === 'conflict') {
+        return { step: candidate, state };
+      }
+    }
+    return null;
+  };
   const stateObserver =
     (step: EditableRecipeStep) => (state: RecipeAutosaveState) => {
       const runtime = runtimeFor(page);
-      if (state === 'conflict') {
-        runtime.conflictedStep = step;
+      if (state === 'error' || state === 'conflict') {
+        if (runtime.failedStep && runtime.failedStep !== step) return;
         runtime.failedStep = step;
+        runtime.conflictedStep = state === 'conflict' ? step : null;
+        setSaveState(page, state);
+        return;
       }
-      if (state === 'error') runtime.failedStep = step;
-      if (state === 'saved' && runtime.conflictedStep === step) {
-        runtime.conflictedStep = null;
-      }
+      if (runtime.failedStep && runtime.failedStep !== step) return;
       if (state === 'saved' && runtime.failedStep === step) {
         runtime.failedStep = null;
-      }
-      if (
-        runtime.failedStep &&
-        runtime.failedStep !== step &&
-        (state === 'saved' || state === 'idle')
-      ) {
-        return;
+        if (runtime.conflictedStep === step) runtime.conflictedStep = null;
+        const pending = queuedFailure();
+        if (pending) {
+          runtime.failedStep = pending.step;
+          runtime.conflictedStep =
+            pending.state === 'conflict' ? pending.step : null;
+          setSaveState(page, pending.state);
+          return;
+        }
       }
       setSaveState(page, state);
     };
@@ -1114,6 +1138,7 @@ const refreshCanonicalVersion = (
         page.setData({
           readOnly: true,
           activeStep: 'PREVIEW',
+          publishConflictRecoveryAvailable: false,
           publishErrorMessage: '这份菜谱已不能继续编辑',
         });
         return false;
@@ -1477,17 +1502,16 @@ Page({
     else if (field === 'estimatedMinutes') update.estimatedMinutesInput = value;
     else return;
     replaceFieldError(this, field, '');
-    this.setData(update, () => {
-      try {
-        basicSnapshot(this);
-      } catch (error) {
-        if (error instanceof EditorFieldError) {
-          replaceFieldError(this, error.field, error.message);
-        }
+    this.setData(update);
+    try {
+      basicSnapshot(this);
+    } catch (error) {
+      if (error instanceof EditorFieldError) {
+        replaceFieldError(this, error.field, error.message);
       }
-      syncLocalDraft(this);
-      scheduleBasic(this);
-    });
+    }
+    syncLocalDraft(this);
+    scheduleBasic(this);
   },
 
   onAddIngredient(event: WechatMiniprogram.TouchEvent) {
@@ -1536,18 +1560,14 @@ Page({
         unitError: '',
       },
     ];
-    this.setData(
-      {
-        editorIngredients,
-        ingredientLimitMessage:
-          editorIngredients.length >= 50 ? '最多可添加50种食材' : '',
-        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleIngredients(this);
-      },
-    );
+    this.setData({
+      editorIngredients,
+      ingredientLimitMessage:
+        editorIngredients.length >= 50 ? '最多可添加50种食材' : '',
+      fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+    });
+    syncLocalDraft(this);
+    scheduleIngredients(this);
   },
 
   onIngredientQuantityInput(event: WechatMiniprogram.Input) {
@@ -1580,16 +1600,12 @@ Page({
             }
           : ingredient,
     );
-    this.setData(
-      {
-        editorIngredients,
-        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleIngredients(this);
-      },
-    );
+    this.setData({
+      editorIngredients,
+      fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+    });
+    syncLocalDraft(this);
+    scheduleIngredients(this);
   },
 
   onIngredientUnitInput(event: WechatMiniprogram.Input) {
@@ -1609,16 +1625,12 @@ Page({
           ? { ...ingredient, unit: event.detail.value, unitError: message }
           : ingredient,
     );
-    this.setData(
-      {
-        editorIngredients,
-        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleIngredients(this);
-      },
-    );
+    this.setData({
+      editorIngredients,
+      fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+    });
+    syncLocalDraft(this);
+    scheduleIngredients(this);
   },
 
   onToggleIngredientRequired(event: WechatMiniprogram.TouchEvent) {
@@ -1632,10 +1644,9 @@ Page({
         ? { ...ingredient, required: !ingredient.required }
         : ingredient,
     );
-    this.setData({ editorIngredients }, () => {
-      syncLocalDraft(this);
-      scheduleIngredients(this);
-    });
+    this.setData({ editorIngredients });
+    syncLocalDraft(this);
+    scheduleIngredients(this);
   },
 
   onRemoveIngredient(event: WechatMiniprogram.TouchEvent) {
@@ -1648,17 +1659,13 @@ Page({
     const editorIngredients = this.data.editorIngredients.filter(
       (ingredient) => ingredient.ingredientId !== id,
     );
-    this.setData(
-      {
-        editorIngredients,
-        ingredientLimitMessage: '',
-        fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleIngredients(this);
-      },
-    );
+    this.setData({
+      editorIngredients,
+      ingredientLimitMessage: '',
+      fieldErrors: fieldErrorsWithIngredientRows(this, editorIngredients),
+    });
+    syncLocalDraft(this);
+    scheduleIngredients(this);
   },
 
   currentIngredientPayload(): RecipeIngredientInput[] {
@@ -1669,28 +1676,26 @@ Page({
     if (mutationIsLocked(this)) return;
     const message =
       event.detail.value.length > 40 ? '做法名称最多填写40个字' : '';
-    this.setData(
-      { methodNameInput: event.detail.value, methodConfigured: true },
-      () => {
-        replaceFieldError(this, 'methodName', message);
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodNameInput: event.detail.value,
+      methodConfigured: true,
+    });
+    replaceFieldError(this, 'methodName', message);
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onCookingStyleInput(event: WechatMiniprogram.Input) {
     if (mutationIsLocked(this)) return;
     const message =
       event.detail.value.length > 32 ? '烹饪方式最多填写32个字' : '';
-    this.setData(
-      { cookingStyleInput: event.detail.value, methodConfigured: true },
-      () => {
-        replaceFieldError(this, 'cookingStyle', message);
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      cookingStyleInput: event.detail.value,
+      methodConfigured: true,
+    });
+    replaceFieldError(this, 'cookingStyle', message);
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onMethodStepInput(event: WechatMiniprogram.Input) {
@@ -1708,24 +1713,16 @@ Page({
         ? message
         : (this.data.methodStepErrors[candidateIndex] ?? ''),
     );
-    this.setData(
-      {
-        methodSteps,
-        methodStepKeys,
-        methodStepErrors,
-        methodStepRows: methodRows(
-          methodSteps,
-          methodStepKeys,
-          methodStepErrors,
-        ),
-        methodConfigured: true,
-      },
-      () => {
-        replaceFieldError(this, `steps[${String(index)}]`, message);
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodSteps,
+      methodStepKeys,
+      methodStepErrors,
+      methodStepRows: methodRows(methodSteps, methodStepKeys, methodStepErrors),
+      methodConfigured: true,
+    });
+    replaceFieldError(this, `steps[${String(index)}]`, message);
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onAddMethodStep() {
@@ -1738,23 +1735,15 @@ Page({
       nextClientKey(this, 'method'),
     ];
     const methodStepErrors = [...this.data.methodStepErrors, ''];
-    this.setData(
-      {
-        methodSteps,
-        methodStepKeys,
-        methodStepErrors,
-        methodStepRows: methodRows(
-          methodSteps,
-          methodStepKeys,
-          methodStepErrors,
-        ),
-        methodConfigured: true,
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodSteps,
+      methodStepKeys,
+      methodStepErrors,
+      methodStepRows: methodRows(methodSteps, methodStepKeys, methodStepErrors),
+      methodConfigured: true,
+    });
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onMoveStepUp(event: WechatMiniprogram.TouchEvent) {
@@ -1784,24 +1773,16 @@ Page({
       methodStepErrors[index],
       methodStepErrors[index - 1],
     ];
-    this.setData(
-      {
-        methodSteps,
-        methodStepKeys,
-        methodStepErrors,
-        methodStepRows: methodRows(
-          methodSteps,
-          methodStepKeys,
-          methodStepErrors,
-        ),
-        fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
-        methodConfigured: true,
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodSteps,
+      methodStepKeys,
+      methodStepErrors,
+      methodStepRows: methodRows(methodSteps, methodStepKeys, methodStepErrors),
+      fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
+      methodConfigured: true,
+    });
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onMoveStepDown(event: WechatMiniprogram.TouchEvent) {
@@ -1831,24 +1812,16 @@ Page({
       methodStepErrors[index + 1],
       methodStepErrors[index],
     ];
-    this.setData(
-      {
-        methodSteps,
-        methodStepKeys,
-        methodStepErrors,
-        methodStepRows: methodRows(
-          methodSteps,
-          methodStepKeys,
-          methodStepErrors,
-        ),
-        fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
-        methodConfigured: true,
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodSteps,
+      methodStepKeys,
+      methodStepErrors,
+      methodStepRows: methodRows(methodSteps, methodStepKeys, methodStepErrors),
+      fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
+      methodConfigured: true,
+    });
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onRemoveMethodStep(event: WechatMiniprogram.TouchEvent) {
@@ -1870,24 +1843,16 @@ Page({
     const methodStepErrors = this.data.methodStepErrors.filter(
       (_, candidateIndex) => candidateIndex !== index,
     );
-    this.setData(
-      {
-        methodSteps,
-        methodStepKeys,
-        methodStepErrors,
-        methodStepRows: methodRows(
-          methodSteps,
-          methodStepKeys,
-          methodStepErrors,
-        ),
-        fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
-        methodConfigured: true,
-      },
-      () => {
-        syncLocalDraft(this);
-        scheduleMethod(this);
-      },
-    );
+    this.setData({
+      methodSteps,
+      methodStepKeys,
+      methodStepErrors,
+      methodStepRows: methodRows(methodSteps, methodStepKeys, methodStepErrors),
+      fieldErrors: fieldErrorsWithMethodErrors(this, methodStepErrors),
+      methodConfigured: true,
+    });
+    syncLocalDraft(this);
+    scheduleMethod(this);
   },
 
   onChooseImage() {
@@ -1898,10 +1863,9 @@ Page({
         imageSelected: (image: RecipeImageAsset) => {
           const runtime = runtimeFor(this);
           if (runtime.destroyed || mutationIsLocked(this)) return;
-          this.setData({ selectedImage: image }, () => {
-            syncLocalDraft(this);
-            runtime.autosaves?.IMAGE.schedule(image.id);
-          });
+          this.setData({ selectedImage: image });
+          syncLocalDraft(this);
+          runtime.autosaves?.IMAGE.schedule(image.id);
         },
       },
       fail: () => {
@@ -1934,13 +1898,7 @@ Page({
 
   async onRetrySave() {
     const runtime = runtimeFor(this);
-    if (
-      runtime.writesDisabled ||
-      this.data.readOnly ||
-      this.data.refreshPending
-    ) {
-      return;
-    }
+    if (runtime.destroyed || mutationIsLocked(this)) return;
     const step =
       runtime.conflictedStep ??
       runtime.failedStep ??
@@ -1970,6 +1928,8 @@ Page({
     if (
       !this.data.publishConflictRecoveryAvailable ||
       this.data.refreshPending ||
+      this.data.readOnly ||
+      runtime.writesDisabled ||
       runtime.destroyed ||
       runtime.navigationOperation ||
       runtime.publishOperation

@@ -237,6 +237,9 @@ test('renders native navigation, tabs, explicit empty states and restrained acti
       new RegExp(`\\.${className}\\s*\\{[^}]*min-height:\\s*88rpx;`, 's'),
     );
   }
+  expect(wxss).toMatch(
+    /\.recipe-row\s*\{[^}]*width:\s*100%;[^}]*min-width:\s*100%;[^}]*justify-content:\s*flex-start;/s,
+  );
   expect(wxss).not.toMatch(/[^@]\[[^\]]+\]\s*\{/);
   expect(wxss).not.toMatch(/\.recipe-row--archived\s*\{[^}]*opacity:/s);
   expect(wxss).toMatch(

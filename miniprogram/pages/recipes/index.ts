@@ -38,6 +38,7 @@ interface DiscoveryData {
   rows: PageRecipeCard[];
   pantrySummary: string;
   visibleIngredients: InventoryItem[];
+  hasVisibleIngredients: boolean;
   hasMoreIngredients: boolean;
   filtersOpen: boolean;
   selectableIngredients: FilterIngredient[];
@@ -162,6 +163,7 @@ Page({
     rows: [] as PageRecipeCard[],
     pantrySummary: '家里有 0 种食材',
     visibleIngredients: [] as InventoryItem[],
+    hasVisibleIngredients: false,
     hasMoreIngredients: false,
     ingredientsExpanded: false,
     filtersOpen: false,
@@ -266,6 +268,7 @@ Page({
       inventory,
       pantrySummary: view.pantrySummary,
       visibleIngredients: view.visibleIngredients,
+      hasVisibleIngredients: view.visibleIngredients.length > 0,
       hasMoreIngredients: view.hasMoreIngredients,
       selectableIngredients: filterIngredients(
         inventory,
@@ -293,6 +296,7 @@ Page({
       ),
       pantrySummary: view.pantrySummary,
       visibleIngredients: view.visibleIngredients,
+      hasVisibleIngredients: view.visibleIngredients.length > 0,
       hasMoreIngredients: view.hasMoreIngredients,
       selectableIngredients: filterIngredients(
         this.data.inventory,

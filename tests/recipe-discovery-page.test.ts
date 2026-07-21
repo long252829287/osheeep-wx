@@ -36,6 +36,7 @@ interface RecipePageData {
   rows: PageRecipeCard[];
   pantrySummary: string;
   visibleIngredients: InventoryItem[];
+  hasVisibleIngredients: boolean;
   hasMoreIngredients: boolean;
   ingredientsExpanded: boolean;
   filtersOpen: boolean;
@@ -72,6 +73,8 @@ interface RecipePageInstance {
   reloadRecipes(): Promise<void>;
   onRetryRefresh(): Promise<void>;
   recoverMenuConflict(recipeId: number): Promise<void>;
+  applyInventory(inventory: InventoryItem[]): void;
+  applyRecipes(recipes: RecipeSummary[]): void;
   applyMenu(menu: TodayMenu): boolean;
   currentQuery(): RecipeDiscoveryQuery;
 }
@@ -327,6 +330,35 @@ test('wraps long recipe titles without shrinking the featured action', () => {
   expect(wxss).toMatch(
     /\.add-button\s*\{[^}]*min-width:\s*224rpx;[^}]*min-height:\s*88rpx;[^}]*flex:\s*0 0 auto;/s,
   );
+});
+
+test('keeps an explicit pantry visibility flag in sync with visible items', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const wxml = readProjectFile('miniprogram/pages/recipes/index.wxml');
+
+  expect(wxml).toContain('wx:if="{{hasVisibleIngredients}}"');
+  expect(wxml).not.toContain('wx:if="{{visibleIngredients.length}}"');
+  expect(instance.data.hasVisibleIngredients).toBe(false);
+
+  definition.applyInventory.call(instance, [
+    inventoryItem(1),
+    inventoryItem(2),
+  ]);
+  expect(instance.data.visibleIngredients).toHaveLength(2);
+  expect(instance.data.hasVisibleIngredients).toBe(true);
+
+  definition.applyRecipes.call(instance, [recipe(1)]);
+  expect(instance.data.visibleIngredients).toHaveLength(2);
+  expect(instance.data.hasVisibleIngredients).toBe(true);
+
+  definition.applyInventory.call(instance, []);
+  expect(instance.data.visibleIngredients).toEqual([]);
+  expect(instance.data.hasVisibleIngredients).toBe(false);
+
+  definition.applyRecipes.call(instance, []);
+  expect(instance.data.visibleIngredients).toEqual([]);
+  expect(instance.data.hasVisibleIngredients).toBe(false);
 });
 
 test('expands and collapses the complete household pantry summary', async () => {

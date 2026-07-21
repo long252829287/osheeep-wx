@@ -23,7 +23,7 @@
         <text class="pantry-summary">{{pantrySummary}}</text>
         <button class="text-action" bindtap="onToggleFiltersPanel" aria-expanded="{{filtersOpen}}">调整食材</button>
       </view>
-      <view wx:if="{{visibleIngredients.length}}" class="pantry-items {{ingredientsExpanded ? 'pantry-items--expanded' : ''}}" aria-label="家中食材摘要">
+      <view wx:if="{{hasVisibleIngredients}}" class="pantry-items {{ingredientsExpanded ? 'pantry-items--expanded' : ''}}" aria-label="家中食材摘要">
         <block wx:if="{{ingredientsExpanded}}">
           <text wx:for="{{inventory}}" wx:key="ingredientId" class="pantry-item">{{item.name}}</text>
         </block>

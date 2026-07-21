@@ -310,6 +310,25 @@ test('renders the approved discovery hierarchy and reachable states', () => {
   );
 });
 
+test('wraps long recipe titles without shrinking the featured action', () => {
+  const wxml = readProjectFile('miniprogram/pages/recipes/index.wxml');
+  const wxss = readProjectFile('miniprogram/pages/recipes/index.wxss');
+
+  expect(wxml).toContain(
+    'class="recipe-name recipe-name--featured">{{featured.name}}',
+  );
+  expect(wxml).toContain('class="recipe-name">{{item.name}}');
+  expect(wxss).toMatch(
+    /\.recipe-name\s*\{[^}]*display:\s*-webkit-box;[^}]*overflow:\s*hidden;[^}]*overflow-wrap:\s*anywhere;[^}]*-webkit-box-orient:\s*vertical;[^}]*-webkit-line-clamp:\s*2;[^}]*white-space:\s*normal;/s,
+  );
+  expect(wxss).toMatch(
+    /\.recipe-scope-label\s*\{[^}]*flex:\s*0 0 auto;[^}]*font-size:\s*20rpx;/s,
+  );
+  expect(wxss).toMatch(
+    /\.add-button\s*\{[^}]*min-width:\s*224rpx;[^}]*min-height:\s*88rpx;[^}]*flex:\s*0 0 auto;/s,
+  );
+});
+
 test('expands and collapses the complete household pantry summary', async () => {
   const definition = await loadRecipePage();
   const instance = createInstance(definition);

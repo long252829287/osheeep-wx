@@ -377,13 +377,16 @@
 }
 
 .recipe-name {
+  display: -webkit-box;
   overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: #282722;
   font-size: 29rpx;
   font-weight: 700;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .recipe-name--featured {

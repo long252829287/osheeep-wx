@@ -33,7 +33,7 @@ interface TonightPageInstance {
   onShow(): void;
   onHide(): void;
   onUnload(): void;
-  loadMenu(successNotice?: string): Promise<void>;
+  loadMenu(): Promise<void>;
   onChooseRecipes(): void;
   onConfirmMenu(): Promise<void>;
   onCompleteMenu(): Promise<void>;
@@ -399,6 +399,41 @@ test('reloads the latest menu after a version conflict without replaying confirm
   );
 });
 
+test('keeps the conflict notice when an in-flight ordinary refresh finishes later', async () => {
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const ordinaryRefresh = deferred<TodayMenu>();
+  const latest = menu('DRAFT', 7, [dish({ recipeId: 20 })]);
+  const app = createAppMock();
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu('DRAFT', 4))
+    .mockReturnValueOnce(ordinaryRefresh.promise)
+    .mockResolvedValueOnce(latest);
+  app.confirmTodayMenu.mockRejectedValueOnce(
+    createPageApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+  );
+  runtime.getApp = () => app;
+  await definition.loadMenu.call(instance);
+
+  const pollingLoad = definition.loadMenu.call(instance);
+  await definition.onConfirmMenu.call(instance);
+  await flushPromises();
+
+  expect(instance.data.noticeMessage).toBe(
+    '菜单已被对方更新，请确认最新内容后重新保存',
+  );
+
+  ordinaryRefresh.resolve(latest);
+  await pollingLoad;
+
+  expect(instance.data.noticeMessage).toBe(
+    '菜单已被对方更新，请确认最新内容后重新保存',
+  );
+  expect(app.confirmTodayMenu).toHaveBeenCalledTimes(1);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(3);
+  expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+});
+
 test('keeps the conflict notice after a fast complete refresh without replay or navigation', async () => {
   const definition = await loadTonightPage();
   const instance = createInstance(definition);
@@ -446,3 +481,68 @@ test('shows the refresh failure when conflict recovery cannot load the latest me
   expect(instance.data.menu?.version).toBe(4);
   expect(instance.data.noticeMessage).toBe('菜单加载失败，请稍后重试');
 });
+
+test('clears a transient load failure on the next successful ordinary refresh', async () => {
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const latest = menu('DRAFT', 5, [dish({ recipeId: 20 })]);
+  const app = createAppMock();
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu('DRAFT', 4))
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(latest);
+  runtime.getApp = () => app;
+  await definition.loadMenu.call(instance);
+
+  await definition.loadMenu.call(instance);
+  expect(instance.data.noticeMessage).toBe('菜单加载失败，请稍后重试');
+
+  await definition.loadMenu.call(instance);
+
+  expect(instance.data.menu).toEqual(latest);
+  expect(instance.data.noticeMessage).toBe('');
+});
+
+test.each(['confirm', 'complete'] as const)(
+  'clears the sticky conflict notice when the user retries %s',
+  async (action) => {
+    const definition = await loadTonightPage();
+    const instance = createInstance(definition);
+    const latest = menu(action === 'confirm' ? 'DRAFT' : 'CONFIRMED', 7);
+    const app = createAppMock();
+    app.getTodayMenu
+      .mockResolvedValueOnce(
+        menu(action === 'confirm' ? 'DRAFT' : 'CONFIRMED', 4),
+      )
+      .mockResolvedValueOnce(latest)
+      .mockResolvedValueOnce(latest);
+    const actionMock =
+      action === 'confirm' ? app.confirmTodayMenu : app.completeTodayMenu;
+    actionMock
+      .mockRejectedValueOnce(
+        createPageApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+      )
+      .mockRejectedValueOnce(new Error('offline'));
+    runtime.getApp = () => app;
+    await definition.loadMenu.call(instance);
+    const invokeAction = () =>
+      action === 'confirm'
+        ? definition.onConfirmMenu.call(instance)
+        : definition.onCompleteMenu.call(instance);
+
+    await invokeAction();
+    await flushPromises();
+    expect(instance.data.noticeMessage).toBe(
+      '菜单已被对方更新，请确认最新内容后重新保存',
+    );
+
+    await invokeAction();
+    expect(instance.data.noticeMessage).toBe('操作失败，请稍后重试');
+
+    await definition.loadMenu.call(instance);
+
+    expect(instance.data.noticeMessage).toBe('');
+    expect(actionMock).toHaveBeenCalledTimes(2);
+    expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+  },
+);

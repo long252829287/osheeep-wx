@@ -21,6 +21,7 @@ interface OsheeepApp {
 type DishView = ReturnType<typeof toMenuDishPresentation>;
 
 let stopPolling: (() => void) | undefined;
+const stickyConflictNotices = new WeakMap<object, string>();
 
 const toDishViews = (dishes: TodayMenu['dishes']): DishView[] =>
   dishes.map(toMenuDishPresentation);
@@ -52,9 +53,10 @@ Page({
   onUnload() {
     stopPolling?.();
     stopPolling = undefined;
+    stickyConflictNotices.delete(this);
   },
 
-  async loadMenu(successNotice = '') {
+  async loadMenu() {
     const hasSnapshot = Boolean(this.data.menu);
     if (!hasSnapshot) this.setData({ loading: true, errorMessage: '' });
     try {
@@ -74,7 +76,7 @@ Page({
         menu,
         dishes: toDishViews(menu.dishes),
         errorMessage: '',
-        noticeMessage: successNotice,
+        noticeMessage: stickyConflictNotices.get(this) ?? '',
       });
     } catch (error) {
       const message =
@@ -96,6 +98,7 @@ Page({
   async onConfirmMenu() {
     const menu = this.data.menu;
     if (!menu || menu.dishes.length === 0 || this.data.actionPending) return;
+    stickyConflictNotices.delete(this);
     this.setData({ actionPending: true, noticeMessage: '' });
     try {
       const key = await createIdempotencyKey();
@@ -114,6 +117,7 @@ Page({
   async onCompleteMenu() {
     const menu = this.data.menu;
     if (!menu || this.data.actionPending) return;
+    stickyConflictNotices.delete(this);
     this.setData({ actionPending: true, noticeMessage: '' });
     try {
       const key = await createIdempotencyKey();
@@ -140,13 +144,14 @@ Page({
       error instanceof ApiError
         ? toMenuErrorMessage(error.errorCode)
         : '操作失败，请稍后重试';
-    this.setData({ noticeMessage: message });
-    if (
+    const isVersionConflict =
       error instanceof ApiError &&
-      error.errorCode === 'DINNER_MENU_VERSION_CONFLICT'
-    ) {
-      void this.loadMenu(message);
+      error.errorCode === 'DINNER_MENU_VERSION_CONFLICT';
+    if (isVersionConflict) {
+      stickyConflictNotices.set(this, message);
     }
+    this.setData({ noticeMessage: message });
+    if (isVersionConflict) void this.loadMenu();
   },
 
   onOpenRecord() {

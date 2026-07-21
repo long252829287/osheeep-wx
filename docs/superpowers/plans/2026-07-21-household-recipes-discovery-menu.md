@@ -469,6 +469,7 @@ Add service cases for:
 8. a tampered existing selection pointing at another household fails on `today()` without returning its name/image;
 9. a multi-dish menu performs one recipe batch, one referenced-method batch and one approved-image batch rather than per-dish queries;
 10. stale menu version still performs no selection writes.
+11. a household selection with null `methodId`, a system selection with non-null `methodId`, or a system selection whose saved version is not `1` all fail on `today()` with `DINNER_RECIPE_INVALID`.
 
 Capture inserted rows:
 
@@ -568,6 +569,8 @@ private record SelectionIdentity(Long recipeVersion, Long methodId) { }
 ```
 
 For every group, require all rows to have the same identity. Batch-load recipes, referenced methods and approved family image assets. Require exact recipe/method coverage, method→recipe linkage and nonblank saved method name/cooking style. Revalidate visibility against the locked menu on every read: system rows must still be `SYSTEM + PUBLISHED`; household rows must still be `HOUSEHOLD + PUBLISHED` with `recipe.householdId == menu.householdId`. System dishes use `recipe.imagePath`; household dishes use the approved asset `listUrl`. Use the saved method ID rather than re-querying “current default”. Missing/corrupt/cross-household data throws `DINNER_RECIPE_INVALID`; remove the existing silent `continue` for a missing recipe.
+
+Validate each resolved identity before producing a response: system rows require `recipeVersion == 1` and `methodId == null`; household rows require a positive saved version and non-null `methodId`. A uniformly corrupted identity is invalid even when every selector row agrees with it.
 
 Preserve selector source/count logic and selected ID ordering.
 
@@ -758,7 +761,7 @@ git commit -m "feat: read immutable dinner dish snapshots"
 
 Required assembler cases:
 
-- valid system dish with version 1/null method;
+- valid system dish with version 1/null method and explicitly null `servings`;
 - valid household dish with two selectors and an approved list image;
 - confirmed menu with no selection rows;
 - same recipe selected with different saved versions;
@@ -833,7 +836,7 @@ Load in at most five batch operations: recipes, joined ingredient rows, referenc
 6. every recipe has at least one required ingredient, so a corrupted system row cannot produce an incomplete history snapshot;
 7. referenced family method exists, is active, has nonblank name/style and `method.recipeId == recipe.id`;
 8. published family aggregate has 1–12 nonblank steps and an approved list image;
-9. scalar fields required by the snapshot are non-null and the resolved image URL fits the existing 255-character `image_path` column.
+9. scope, name, category, flavor and estimated minutes required by the snapshot are non-null, and the resolved image URL fits the existing 255-character `image_path` column. Household `servings` must be within `1..20`; existing system recipes may keep `servings = null` and must not be rejected or backfilled with a guessed value.
 
 For household images use `ImageAssetResponse.listUrl()`. Never use `detailUrl`, `sourcePageUrl` or `originalFileUrl` for the snapshot.
 

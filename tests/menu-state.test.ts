@@ -2,8 +2,9 @@ import {
   createIdempotencyKey,
   getMenuPrimaryAction,
   getSourcePresentation,
+  toMenuDishPresentation,
 } from '../miniprogram/utils/menu-state';
-import type { TodayMenu } from '../miniprogram/types/menu';
+import type { MenuDish, TodayMenu } from '../miniprogram/types/menu';
 
 test('creates an RFC 4122 version 4 key from WeChat random bytes', async () => {
   const getRandomValues = jest.fn(({ success }) => {
@@ -44,6 +45,36 @@ test('derives the primary action from menu status and dish count', () => {
   expect(getMenuPrimaryAction(menu('COMPLETED', 1)).kind).toBe('record');
 });
 
+test('prepares household method context without an empty system placeholder', () => {
+  const familyDish: MenuDish = {
+    recipeId: 14,
+    name: '番茄炒蛋',
+    imagePath: 'https://www.osheeep.com/media/recipes/tomato-list.webp',
+    category: '家常菜',
+    flavor: '酸甜',
+    estimatedMinutes: 15,
+    scope: 'HOUSEHOLD',
+    recipeVersion: 8,
+    method: { id: 21, name: '家常做法', cookingStyle: '炒' },
+    source: 'BOTH',
+  };
+  const systemDish: MenuDish = {
+    ...familyDish,
+    recipeId: 1,
+    scope: 'SYSTEM',
+    recipeVersion: 1,
+    method: null,
+    source: 'ME',
+  };
+
+  expect(toMenuDishPresentation(familyDish)).toMatchObject({
+    sourceLabel: '都想吃',
+    sourceTone: 'both',
+    contextLabel: '自家菜谱 · 家常做法',
+  });
+  expect(toMenuDishPresentation(systemDish).contextLabel).toBe('');
+});
+
 const menu = (status: TodayMenu['status'], dishCount: number): TodayMenu => ({
   id: 31,
   menuDate: '2026-07-11',
@@ -60,6 +91,9 @@ const menu = (status: TodayMenu['status'], dishCount: number): TodayMenu => ({
     category: '家常菜',
     flavor: '酸甜',
     estimatedMinutes: 10,
+    scope: 'SYSTEM',
+    recipeVersion: 1,
+    method: null,
     source: 'ME',
   })),
 });

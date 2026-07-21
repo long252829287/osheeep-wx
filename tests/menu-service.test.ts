@@ -7,7 +7,7 @@ test('maps dinner menu read and write endpoints', async () => {
   const service = createMenuService({ request });
 
   await service.getToday();
-  await service.saveSelections([1, 2], 4);
+  await service.saveSelections([1, 14], 3);
   await service.confirm(5, 'action-1');
   await service.complete(6, 'action-2');
 
@@ -15,7 +15,7 @@ test('maps dinner menu read and write endpoints', async () => {
   expect(request).toHaveBeenNthCalledWith(
     2,
     '/api/dinner/menus/today/selections',
-    { method: 'PUT', data: { recipeIds: [1, 2], version: 4 } },
+    { method: 'PUT', data: { recipeIds: [1, 14], version: 3 } },
   );
   expect(request).toHaveBeenNthCalledWith(
     3,

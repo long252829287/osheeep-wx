@@ -165,6 +165,9 @@ const recipe = (id: number, ingredientIds: number[] = [id]): RecipeSummary => ({
   category: '家常菜',
   flavor: '咸鲜',
   estimatedMinutes: 20,
+  scope: 'SYSTEM',
+  version: 1,
+  defaultMethod: null,
   ingredients: ingredientIds.map((ingredientId) => ({
     ingredientId,
     name: `食材 ${ingredientId}`,

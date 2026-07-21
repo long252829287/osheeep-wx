@@ -25,6 +25,9 @@ const recipe = (
   category: '家常菜',
   flavor: '咸鲜',
   estimatedMinutes: 20,
+  scope: 'SYSTEM',
+  version: 1,
+  defaultMethod: null,
   ingredients: [
     {
       ingredientId: id,
@@ -62,12 +65,36 @@ test('builds a focused first screen with one featured and two rows', () => {
   expect(view.pantrySummary).toBe('家里有 12 种食材');
   expect(view.featured?.id).toBe(1);
   expect(view.featured?.matchLabel).toBe('食材齐全');
+  expect(view.featured?.scopeLabel).toBe('');
+  expect(view.featured?.ariaName).toBe('菜谱 1');
   expect(view.rows).toHaveLength(2);
   expect(view.rows[0].matchLabel).toBe('数量待确认');
   expect(view.rows[1].matchLabel).toBe('还缺 2 样');
   expect(view.visibleIngredients).toEqual(inventory.slice(0, 3));
   expect(view.hasMoreIngredients).toBe(true);
   expect(view.onlyCookable).toBe(false);
+});
+
+test('labels a household recipe without changing the server order', () => {
+  const householdRecipe: RecipeSummary = {
+    ...recipe(14, 'AVAILABLE'),
+    name: '番茄炒蛋',
+    scope: 'HOUSEHOLD',
+    version: 8,
+    defaultMethod: {
+      id: 21,
+      name: '家常做法',
+      cookingStyle: '炒',
+    },
+  };
+
+  expect(
+    toRecipeDiscoveryView([householdRecipe], [], false).featured,
+  ).toMatchObject({
+    id: 14,
+    scopeLabel: '自家菜谱',
+    ariaName: '自家菜谱，番茄炒蛋',
+  });
 });
 
 test('handles an empty discovery result and a compact pantry', () => {

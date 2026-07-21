@@ -1,4 +1,4 @@
-import type { MenuDishSource, TodayMenu } from '../types/menu';
+import type { MenuDish, MenuDishSource, TodayMenu } from '../types/menu';
 
 export interface RandomValuesPort {
   (options: {
@@ -21,6 +21,19 @@ export const getSourcePresentation = (source: MenuDishSource) => {
     BOTH: { label: '都想吃', tone: 'both' },
   } as const;
   return presentations[source];
+};
+
+export const toMenuDishPresentation = (dish: MenuDish) => {
+  const source = getSourcePresentation(dish.source);
+  return {
+    ...dish,
+    sourceLabel: source.label,
+    sourceTone: source.tone,
+    contextLabel:
+      dish.scope === 'HOUSEHOLD'
+        ? `自家菜谱${dish.method ? ` · ${dish.method.name}` : ''}`
+        : '',
+  };
 };
 
 export const getMenuPrimaryAction = (menu: TodayMenu): MenuPrimaryAction => {

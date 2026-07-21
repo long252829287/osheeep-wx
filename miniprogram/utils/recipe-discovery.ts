@@ -3,6 +3,8 @@ import type { RecipeMatch, RecipeSummary } from '../types/recipe';
 
 export interface RecipeCardView extends RecipeSummary {
   matchLabel: string;
+  scopeLabel: '' | '自家菜谱';
+  ariaName: string;
 }
 
 export interface RecipeDiscoveryView {
@@ -20,10 +22,15 @@ const matchLabel = (match: RecipeMatch): string => {
   return `还缺 ${match.missingIngredients.length} 样`;
 };
 
-const toCard = (recipe: RecipeSummary): RecipeCardView => ({
-  ...recipe,
-  matchLabel: matchLabel(recipe.match),
-});
+const toCard = (recipe: RecipeSummary): RecipeCardView => {
+  const scopeLabel = recipe.scope === 'HOUSEHOLD' ? '自家菜谱' : '';
+  return {
+    ...recipe,
+    matchLabel: matchLabel(recipe.match),
+    scopeLabel,
+    ariaName: scopeLabel ? `${scopeLabel}，${recipe.name}` : recipe.name,
+  };
+};
 
 export const toRecipeDiscoveryView = (
   recipes: RecipeSummary[],

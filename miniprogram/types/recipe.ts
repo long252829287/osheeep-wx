@@ -16,6 +16,14 @@ export interface RecipeMatch {
   unknownQuantityIngredients: string[];
 }
 
+export type RecipeScope = 'SYSTEM' | 'HOUSEHOLD';
+
+export interface RecipeMethodSummary {
+  id: number;
+  name: string;
+  cookingStyle: string;
+}
+
 export interface RecipeSummary {
   id: number;
   name: string;
@@ -23,6 +31,9 @@ export interface RecipeSummary {
   category: string;
   flavor: string;
   estimatedMinutes: number;
+  scope: RecipeScope;
+  version: number;
+  defaultMethod: RecipeMethodSummary | null;
   ingredients: RecipeIngredient[];
   match: RecipeMatch;
 }

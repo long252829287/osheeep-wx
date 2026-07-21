@@ -56,6 +56,7 @@
         <image class="dish-image" src="{{item.imagePath}}" mode="aspectFill" />
         <view class="dish-copy">
           <text class="dish-name">{{item.name}}</text>
+          <text wx:if="{{item.contextLabel}}" class="dish-context">{{item.contextLabel}}</text>
           <text class="dish-meta">{{item.flavor}} · {{item.estimatedMinutes}} 分钟</text>
         </view>
         <text class="source-label source-label--{{item.sourceTone}}">{{item.sourceLabel}}</text>
@@ -64,8 +65,8 @@
     </view>
 
     <view class="action-area">
-      <button wx:if="{{menu.status === 'DRAFT'}}" class="primary-button" disabled="{{menu.dishes.length === 0 || actionPending}}" loading="{{actionPending}}" bindtap="onConfirmMenu">确认今晚菜单</button>
-      <button wx:elif="{{menu.status === 'CONFIRMED'}}" class="primary-button" disabled="{{actionPending}}" loading="{{actionPending}}" bindtap="onCompleteMenu">已做完，生成记录</button>
+      <button wx:if="{{menu.status === 'DRAFT'}}" class="primary-button {{menu.dishes.length === 0 || actionPending ? 'primary-button--disabled' : ''}}" disabled="{{menu.dishes.length === 0 || actionPending}}" loading="{{actionPending}}" bindtap="onConfirmMenu">确认今晚菜单</button>
+      <button wx:elif="{{menu.status === 'CONFIRMED'}}" class="primary-button {{actionPending ? 'primary-button--disabled' : ''}}" disabled="{{actionPending}}" loading="{{actionPending}}" bindtap="onCompleteMenu">已做完，生成记录</button>
       <button wx:else class="primary-button" bindtap="onOpenRecord">查看这顿晚饭</button>
       <text class="action-note">{{menu.status === 'DRAFT' ? (menu.dishes.length ? '任一方确认后生效' : '至少选择 1 道菜后才能确认') : (menu.status === 'CONFIRMED' ? '重复点击不会生成多条记录' : '这份菜单已经保存到做饭记录')}}</text>
     </view>

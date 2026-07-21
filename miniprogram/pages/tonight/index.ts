@@ -1,11 +1,11 @@
 import { ApiError } from '../../services/request';
 import type { HouseholdSummary } from '../../types/household';
-import type { MenuDish, TodayMenu } from '../../types/menu';
+import type { TodayMenu } from '../../types/menu';
 import { toMenuErrorMessage } from '../../utils/menu-errors';
 import { startMenuPolling } from '../../utils/menu-polling';
 import {
   createIdempotencyKey,
-  getSourcePresentation,
+  toMenuDishPresentation,
 } from '../../utils/menu-state';
 
 interface OsheeepApp {
@@ -18,19 +18,12 @@ interface OsheeepApp {
   ) => Promise<{ recordId: number; menu: TodayMenu }>;
 }
 
-interface DishView extends MenuDish {
-  sourceLabel: string;
-  sourceTone: string;
-}
+type DishView = ReturnType<typeof toMenuDishPresentation>;
 
 let stopPolling: (() => void) | undefined;
 
-const toDishViews = (dishes: MenuDish[]): DishView[] =>
-  dishes.map((dish) => ({
-    ...dish,
-    sourceLabel: getSourcePresentation(dish.source).label,
-    sourceTone: getSourcePresentation(dish.source).tone,
-  }));
+const toDishViews = (dishes: TodayMenu['dishes']): DishView[] =>
+  dishes.map(toMenuDishPresentation);
 
 Page({
   data: {

@@ -1,4 +1,8 @@
 import type { RecordDetail } from '../../types/record';
+import {
+  toRecordDishPresentation,
+  type RecordDishPresentation,
+} from '../../utils/record-detail';
 
 interface OsheeepApp {
   getRecord: (recordId: number) => Promise<RecordDetail>;
@@ -8,6 +12,7 @@ Page({
   data: {
     loading: true,
     record: null as RecordDetail | null,
+    dishes: [] as RecordDishPresentation[],
     errorMessage: '',
   },
 
@@ -20,7 +25,10 @@ Page({
 
     try {
       const record = await getApp<OsheeepApp>().getRecord(recordId);
-      this.setData({ record });
+      this.setData({
+        record,
+        dishes: record.dishes.map(toRecordDishPresentation),
+      });
     } catch {
       this.setData({ errorMessage: '晚餐详情加载失败，请稍后重试' });
     } finally {

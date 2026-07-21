@@ -69,7 +69,7 @@
 
     <view wx:if="{{refreshMessage}}" class="inline-message" role="alert">
       <text>{{refreshMessage}}</text>
-      <button class="inline-retry" bindtap="reloadRecipes">重试</button>
+      <button class="inline-retry" bindtap="onRetryRefresh">重试</button>
     </view>
     <view wx:if="{{conflictMessage}}" class="conflict-message" role="alert">{{conflictMessage}}</view>
     <view wx:if="{{actionMessage}}" class="action-message" role="status">{{actionMessage}}</view>

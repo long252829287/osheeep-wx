@@ -20,6 +20,7 @@ interface PageRecipeCard extends RecipeCardView {
 }
 
 type FilterState = 'neutral' | 'include' | 'exclude';
+type RefreshRetryMode = 'RECIPES_ONLY' | 'INVALID_RECIPE';
 
 interface FilterIngredient {
   ingredientId: number;
@@ -51,6 +52,7 @@ interface DiscoveryData {
   pendingRecipeId: number;
   loadErrorMessage: string;
   refreshMessage: string;
+  refreshRetryMode: RefreshRetryMode;
   actionMessage: string;
   conflictMessage: string;
 }
@@ -175,6 +177,7 @@ Page({
     pendingRecipeId: 0,
     loadErrorMessage: '',
     refreshMessage: '',
+    refreshRetryMode: 'RECIPES_ONLY' as RefreshRetryMode,
     actionMessage: '',
     conflictMessage: '',
   },
@@ -189,6 +192,7 @@ Page({
       refreshing: hasLoadedRecipes,
       loadErrorMessage: '',
       refreshMessage: '',
+      refreshRetryMode: 'RECIPES_ONLY',
       actionMessage: '',
     });
 
@@ -337,6 +341,7 @@ Page({
       excludeIngredientIds: excludeIds,
       refreshing: true,
       refreshMessage: '',
+      refreshRetryMode: 'RECIPES_ONLY',
       actionMessage: '',
     });
     try {
@@ -353,6 +358,14 @@ Page({
     } finally {
       if (token === recipeRequestToken) this.setData({ refreshing: false });
     }
+  },
+
+  async onRetryRefresh() {
+    if (this.data.refreshRetryMode === 'INVALID_RECIPE') {
+      await this.recoverInvalidRecipe();
+      return;
+    }
+    await this.reloadRecipes();
   },
 
   onToggleFiltersPanel() {
@@ -500,6 +513,7 @@ Page({
       pendingRecipeId: 0,
       refreshing: true,
       refreshMessage: '',
+      refreshRetryMode: 'INVALID_RECIPE',
       actionMessage: '',
       conflictMessage: '',
     });
@@ -564,7 +578,10 @@ Page({
     }
     this.setData({
       actionMessage: toMenuErrorMessage('DINNER_RECIPE_INVALID'),
-      ...(recoveryErrorMessage ? { refreshMessage: recoveryErrorMessage } : {}),
+      refreshMessage: recoveryErrorMessage,
+      refreshRetryMode: recoveryErrorMessage
+        ? 'INVALID_RECIPE'
+        : 'RECIPES_ONLY',
     });
   },
 

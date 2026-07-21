@@ -51,6 +51,7 @@ interface RecipePageData {
   pendingRecipeId: number;
   loadErrorMessage: string;
   refreshMessage: string;
+  refreshRetryMode: 'RECIPES_ONLY' | 'INVALID_RECIPE';
   actionMessage: string;
   conflictMessage: string;
 }
@@ -69,6 +70,7 @@ interface RecipePageInstance {
   onOpenHouseholdRecipes(): void;
   onOpenIngredients(): void;
   reloadRecipes(): Promise<void>;
+  onRetryRefresh(): Promise<void>;
   recoverMenuConflict(recipeId: number): Promise<void>;
   applyMenu(menu: TodayMenu): boolean;
   currentQuery(): RecipeDiscoveryQuery;
@@ -278,6 +280,8 @@ test('renders the approved discovery hierarchy and reachable states', () => {
   expect(wxml).toContain('class="row-action');
   expect(wxml).not.toContain('class="row-chevron"');
   expect(wxml).toContain('bindtap="onRetry"');
+  expect(wxml).toContain('bindtap="onRetryRefresh"');
+  expect(wxml).not.toContain('bindtap="reloadRecipes"');
   expect(wxml).toContain('aria-label="{{featured.name}}菜品图片"');
   expect(wxml).toContain('wx:if="{{featured.scopeLabel}}"');
   expect(wxml).toContain('wx:if="{{item.scopeLabel}}"');
@@ -691,6 +695,87 @@ test('refreshes recipes and menu without replay when a household recipe becomes 
   expect(instance.data.actionMessage).toBe(
     '这道家庭菜谱已不可用，请刷新后重试',
   );
+});
+
+test('retries both reads without another save when only the invalid-recovery menu read fails', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const householdRecipe: RecipeSummary = {
+    ...recipe(14),
+    scope: 'HOUSEHOLD',
+    version: 8,
+    defaultMethod: {
+      id: 21,
+      name: '家常做法',
+      cookingStyle: '炒',
+    },
+  };
+  const latestMenu = menu(7, [2, 8]);
+  const app = createAppMock();
+  app.getRecipes
+    .mockResolvedValueOnce([householdRecipe])
+    .mockResolvedValueOnce([householdRecipe])
+    .mockResolvedValueOnce([recipe(1)]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(5, [2]))
+    .mockRejectedValueOnce(new Error('menu unavailable'))
+    .mockResolvedValueOnce(latestMenu);
+  app.saveSelections.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_INVALID', 'invalid'),
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  instance.setData({ pendingRecipeId: 14 });
+
+  await definition.onAddToTonight.call(instance, eventFor(14));
+
+  expect(instance.data.featured?.id).toBe(14);
+  expect(instance.data.menuVersion).toBe(5);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2]);
+  expect(instance.data.pendingRecipeId).toBe(0);
+  expect(instance.data.refreshMessage).toBe('暂时加载失败，请稍后重试');
+  expect(instance.data.refreshRetryMode).toBe('INVALID_RECIPE');
+  expect(app.saveSelections).toHaveBeenCalledTimes(1);
+  expect(app.getRecipes).toHaveBeenCalledTimes(2);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+
+  await definition.onRetryRefresh.call(instance);
+
+  expect(app.getRecipes).toHaveBeenCalledTimes(3);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(3);
+  expect(app.saveSelections).toHaveBeenCalledTimes(1);
+  expect(instance.data.featured?.id).toBe(1);
+  expect(instance.data.menuVersion).toBe(7);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2, 8]);
+  expect(instance.data.pendingRecipeId).toBe(0);
+  expect(instance.data.refreshMessage).toBe('');
+  expect(instance.data.refreshRetryMode).toBe('RECIPES_ONLY');
+});
+
+test('keeps an ordinary recipe refresh retry scoped to recipes only', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getRecipes.mockResolvedValueOnce([recipe(1)]);
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  app.getRecipes
+    .mockRejectedValueOnce(new Error('recipes unavailable'))
+    .mockResolvedValueOnce([recipe(2)]);
+
+  await definition.reloadRecipes.call(instance);
+
+  expect(instance.data.featured?.id).toBe(1);
+  expect(instance.data.refreshMessage).toBe('暂时加载失败，请稍后重试');
+  expect(instance.data.refreshRetryMode).toBe('RECIPES_ONLY');
+
+  await definition.onRetryRefresh.call(instance);
+
+  expect(app.getRecipes).toHaveBeenCalledTimes(3);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(1);
+  expect(app.saveSelections).not.toHaveBeenCalled();
+  expect(instance.data.featured?.id).toBe(2);
+  expect(instance.data.refreshMessage).toBe('');
 });
 
 test('does not let a stale invalid-recipe refresh overwrite a newer page load', async () => {

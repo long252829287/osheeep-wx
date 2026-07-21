@@ -78,7 +78,10 @@
       <image wx:if="{{featured.imagePath}}" class="featured-image" src="{{featured.imagePath}}" mode="aspectFill" aria-role="img" aria-label="{{featured.name}}菜品图片" />
       <view class="featured-body">
         <view class="featured-copy">
-          <text class="recipe-name recipe-name--featured">{{featured.name}}</text>
+          <view class="recipe-title-line">
+            <text class="recipe-name recipe-name--featured">{{featured.name}}</text>
+            <text wx:if="{{featured.scopeLabel}}" class="recipe-scope-label">{{featured.scopeLabel}}</text>
+          </view>
           <view class="recipe-meta-line">
             <text>{{featured.estimatedMinutes}} 分钟</text>
             <text class="meta-divider">｜</text>
@@ -91,7 +94,7 @@
           loading="{{savingRecipeId === featured.id}}"
           disabled="{{featured.added || savingRecipeId}}"
           bindtap="onAddToTonight"
-          aria-label="{{featured.added ? featured.name + '已加入今晚菜单' : '将' + featured.name + '加入今晚菜单'}}"
+          aria-label="{{featured.ariaName + (featured.added ? '，已加入今晚菜单' : (pendingRecipeId === featured.id ? '，重试加入今晚菜单' : '，加入今晚菜单'))}}"
         >{{featured.added ? '已加入今晚菜单' : (pendingRecipeId === featured.id ? '重试加入' : '加入今晚菜单')}}</button>
       </view>
     </view>
@@ -110,11 +113,14 @@
         data-id="{{item.id}}"
         disabled="{{savingRecipeId}}"
         bindtap="onAddToTonight"
-        aria-label="{{item.added ? item.name + '已加入今晚菜单' : '将' + item.name + '加入今晚菜单'}}"
+        aria-label="{{item.ariaName + (item.added ? '，已加入今晚菜单' : (pendingRecipeId === item.id ? '，重试加入今晚菜单' : '，加入今晚菜单'))}}"
       >
         <image wx:if="{{item.imagePath}}" class="row-image" src="{{item.imagePath}}" mode="aspectFill" aria-role="img" aria-label="{{item.name}}菜品图片" />
         <view class="row-copy">
-          <text class="recipe-name">{{item.name}}</text>
+          <view class="recipe-title-line">
+            <text class="recipe-name">{{item.name}}</text>
+            <text wx:if="{{item.scopeLabel}}" class="recipe-scope-label">{{item.scopeLabel}}</text>
+          </view>
           <view class="recipe-meta-line recipe-meta-line--row">
             <text>{{item.estimatedMinutes}} 分钟</text>
             <text class="meta-divider">｜</text>

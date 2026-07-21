@@ -454,6 +454,10 @@ Page({
         await this.recoverMenuConflict(recipeId, operationToken);
         return;
       }
+      if (errorCodeOf(error) === 'DINNER_RECIPE_INVALID') {
+        await this.recoverInvalidRecipe(operationToken);
+        return;
+      }
       this.setData({ actionMessage: requestErrorMessage(error) });
     } finally {
       if (
@@ -480,6 +484,88 @@ Page({
       if (operationToken !== menuOperationToken) return;
       this.setData({ actionMessage: requestErrorMessage(error) });
     }
+  },
+
+  async recoverInvalidRecipe(activeOperationToken?: number) {
+    const operationToken = activeOperationToken ?? ++menuOperationToken;
+    const recipesToken = ++recipeRequestToken;
+    const menuReadToken = ++menuReadRequestToken;
+    const { includeIds, excludeIds } = normalizedFilterIds(
+      this.data.includeIngredientIds,
+      this.data.excludeIngredientIds,
+    );
+    this.setData({
+      includeIngredientIds: includeIds,
+      excludeIngredientIds: excludeIds,
+      pendingRecipeId: 0,
+      refreshing: true,
+      refreshMessage: '',
+      actionMessage: '',
+      conflictMessage: '',
+    });
+
+    const app = getApp<OsheeepApp>();
+    let recoveryErrorMessage = '';
+    const recipesRequest = app
+      .getRecipes({
+        includeIngredientIds: includeIds,
+        excludeIngredientIds: excludeIds,
+        onlyCookable: this.data.onlyCookable,
+      })
+      .then((recipes) => {
+        if (
+          operationToken !== menuOperationToken ||
+          recipesToken !== recipeRequestToken
+        ) {
+          return;
+        }
+        this.applyRecipes(recipes);
+      })
+      .catch((error: unknown) => {
+        if (
+          operationToken === menuOperationToken &&
+          recipesToken === recipeRequestToken &&
+          !recoveryErrorMessage
+        ) {
+          recoveryErrorMessage = requestErrorMessage(error);
+        }
+      });
+    const menuRequest = app
+      .getTodayMenu()
+      .then((menu) => {
+        if (
+          operationToken !== menuOperationToken ||
+          menuReadToken !== menuReadRequestToken
+        ) {
+          return;
+        }
+        this.applyMenu(menu);
+      })
+      .catch((error: unknown) => {
+        if (
+          operationToken === menuOperationToken &&
+          menuReadToken === menuReadRequestToken &&
+          !recoveryErrorMessage
+        ) {
+          recoveryErrorMessage = requestErrorMessage(error);
+        }
+      });
+
+    await Promise.allSettled([recipesRequest, menuRequest]);
+    if (recipesToken === recipeRequestToken) {
+      this.setData({ refreshing: false });
+    }
+    if (
+      operationToken !== menuOperationToken ||
+      recipesToken !== recipeRequestToken ||
+      menuReadToken !== menuReadRequestToken
+    ) {
+      return;
+    }
+    this.setData({
+      actionMessage: toMenuErrorMessage('DINNER_RECIPE_INVALID'),
+      ...(recoveryErrorMessage ? { refreshMessage: recoveryErrorMessage } : {}),
+    });
   },
 
   onOpenHouseholdRecipes() {

@@ -279,6 +279,13 @@ test('renders the approved discovery hierarchy and reachable states', () => {
   expect(wxml).not.toContain('class="row-chevron"');
   expect(wxml).toContain('bindtap="onRetry"');
   expect(wxml).toContain('aria-label="{{featured.name}}菜品图片"');
+  expect(wxml).toContain('wx:if="{{featured.scopeLabel}}"');
+  expect(wxml).toContain('wx:if="{{item.scopeLabel}}"');
+  expect(wxml).toContain('{{featured.scopeLabel}}');
+  expect(wxml).toContain('{{item.scopeLabel}}');
+  expect(wxml).toContain('featured.ariaName + (featured.added');
+  expect(wxml).toContain('item.ariaName + (item.added');
+  expect(wxml).toContain("'，重试加入今晚菜单'");
   expect(wxml).toContain('<bottom-nav active="recipes" />');
   expect(wxss).toContain('env(safe-area-inset-bottom)');
   expect(wxss).toContain('@media (min-width: 430px)');
@@ -291,6 +298,9 @@ test('renders the approved discovery hierarchy and reachable states', () => {
   );
   expect(wxss).toMatch(/\.row-copy\s*\{[^}]*width:\s*0;[^}]*flex:\s*1 1 0%;/s);
   expect(wxss).toMatch(/\.pantry-expand\s*\{[^}]*min-height:\s*88rpx;/s);
+  expect(wxss).toMatch(/\.recipe-scope-label\s*\{/);
+  expect(wxss).toMatch(/\.recipe-title-line\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  expect(wxss).toMatch(/\.add-button\s*\{[^}]*flex:\s*0 0 auto;/s);
   expect(wxss).not.toMatch(
     /@media \(min-width: 430px\)[\s\S]*\.featured-image\s*\{[^}]*height:\s*390rpx;/,
   );
@@ -632,6 +642,104 @@ test('reloads after conflict, preserves the pending recipe, and requires retry',
   expect(app.saveSelections).toHaveBeenLastCalledWith([2, 4, 8], 7);
   expect(instance.data.menuVersion).toBe(8);
   expect(instance.data.pendingRecipeId).toBe(0);
+});
+
+test('refreshes recipes and menu without replay when a household recipe becomes invalid', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const householdRecipe: RecipeSummary = {
+    ...recipe(14),
+    scope: 'HOUSEHOLD',
+    version: 8,
+    defaultMethod: {
+      id: 21,
+      name: '家常做法',
+      cookingStyle: '炒',
+    },
+  };
+  const systemRecipe = recipe(1);
+  const latestMenu = menu(7, [2, 8]);
+  const app = createAppMock();
+  app.getRecipes
+    .mockResolvedValueOnce([householdRecipe])
+    .mockResolvedValueOnce([systemRecipe]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(5, [2]))
+    .mockResolvedValueOnce(latestMenu);
+  app.saveSelections.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_INVALID', 'invalid'),
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  instance.setData({ pendingRecipeId: 14 });
+
+  await definition.onAddToTonight.call(instance, eventFor(14));
+
+  expect(app.saveSelections).toHaveBeenCalledTimes(1);
+  expect(app.getRecipes).toHaveBeenCalledTimes(2);
+  expect(app.getRecipes).toHaveBeenLastCalledWith({
+    includeIngredientIds: [],
+    excludeIngredientIds: [],
+    onlyCookable: false,
+  });
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+  expect(instance.data.featured?.id).toBe(1);
+  expect(instance.data.menuVersion).toBe(7);
+  expect(instance.data.mySelectedRecipeIds).toEqual([2, 8]);
+  expect(instance.data.pendingRecipeId).toBe(0);
+  expect(instance.data.conflictMessage).toBe('');
+  expect(instance.data.actionMessage).toBe(
+    '这道家庭菜谱已不可用，请刷新后重试',
+  );
+});
+
+test('does not let a stale invalid-recipe refresh overwrite a newer page load', async () => {
+  const definition = await loadRecipePage();
+  const instance = createInstance(definition);
+  const staleRecipes = deferred<RecipeSummary[]>();
+  const staleMenu = deferred<TodayMenu>();
+  const householdRecipe: RecipeSummary = {
+    ...recipe(14),
+    scope: 'HOUSEHOLD',
+    version: 8,
+    defaultMethod: {
+      id: 21,
+      name: '家常做法',
+      cookingStyle: '炒',
+    },
+  };
+  const app = createAppMock();
+  app.getRecipes
+    .mockResolvedValueOnce([householdRecipe])
+    .mockReturnValueOnce(staleRecipes.promise)
+    .mockResolvedValueOnce([recipe(20)]);
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu(5, [2]))
+    .mockReturnValueOnce(staleMenu.promise)
+    .mockResolvedValueOnce(menu(8, [20]));
+  app.saveSelections.mockRejectedValueOnce(
+    new ApiError('DINNER_RECIPE_INVALID', 'invalid'),
+  );
+  runtime.getApp = () => app;
+  await definition.onShow.call(instance);
+  instance.setData({ pendingRecipeId: 14 });
+
+  const recovering = definition.onAddToTonight.call(instance, eventFor(14));
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(app.getRecipes).toHaveBeenCalledTimes(2);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+
+  await definition.onShow.call(instance);
+  staleRecipes.resolve([recipe(10)]);
+  staleMenu.resolve(menu(7, [10]));
+  await recovering;
+
+  expect(instance.data.featured?.id).toBe(20);
+  expect(instance.data.menuVersion).toBe(8);
+  expect(instance.data.mySelectedRecipeIds).toEqual([20]);
+  expect(instance.data.pendingRecipeId).toBe(0);
+  expect(instance.data.actionMessage).toBe('');
 });
 
 test.each(['save-first', 'rollover-first'] as const)(

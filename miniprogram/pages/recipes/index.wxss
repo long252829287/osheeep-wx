@@ -348,6 +348,34 @@
   flex: 1 1 0%;
 }
 
+.recipe-title-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10rpx;
+  flex-wrap: wrap;
+}
+
+.recipe-title-line .recipe-name {
+  min-width: 0;
+  flex: 1 1 180rpx;
+}
+
+.recipe-scope-label {
+  display: inline-flex;
+  min-height: 34rpx;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 2rpx 10rpx;
+  border-radius: 10rpx;
+  background: #f3f4e8;
+  color: #6d713a;
+  font-size: 20rpx;
+  font-weight: 650;
+  line-height: 30rpx;
+  white-space: nowrap;
+}
+
 .recipe-name {
   overflow: hidden;
   color: #282722;
@@ -390,6 +418,7 @@
   display: flex;
   min-width: 224rpx;
   min-height: 88rpx;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   margin: 0;

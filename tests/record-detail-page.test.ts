@@ -78,6 +78,11 @@ const createInstance = (
   },
 });
 
+const maximumMethodName = '慢'.repeat(40);
+const maximumCookingStyle = '炒'.repeat(32);
+const maximumUnit = '勺'.repeat(16);
+const maximumAmountLabel = `999999999.999${maximumUnit}`;
+
 const householdDish: RecordDish = {
   recipeId: 14,
   name: '番茄炒蛋',
@@ -91,8 +96,8 @@ const householdDish: RecordDish = {
   servings: 2,
   method: {
     id: 21,
-    name: '家常做法',
-    cookingStyle: '炒',
+    name: maximumMethodName,
+    cookingStyle: maximumCookingStyle,
     steps: [
       { instruction: '盛盘', sortOrder: 1 },
       { instruction: '翻炒', sortOrder: 0 },
@@ -110,8 +115,8 @@ const householdDish: RecordDish = {
     {
       ingredientId: 1,
       name: '番茄',
-      quantity: 2,
-      unit: '个',
+      quantity: 999999999.999,
+      unit: maximumUnit,
       required: true,
       sortOrder: 0,
     },
@@ -193,6 +198,17 @@ test('renders snapshot-only details with guarded sections and null-image fallbac
   expect(wxss).toMatch(/\.dish-list\s*\{/);
   expect(wxss).toMatch(/\.snapshot-section\s*\{/);
   expect(wxss).toMatch(
+    /\.method-name\s*\{[^}]*min-width:\s*0;[^}]*word-break:\s*break-all;[^}]*flex:\s*1 1 \d+rpx;/s,
+  );
+  expect(wxss).toMatch(
+    /\.method-style\s*\{[^}]*min-width:\s*0;[^}]*white-space:\s*normal;[^}]*word-break:\s*break-all;[^}]*flex:\s*0 1 auto;/s,
+  );
+  expect(wxss).toMatch(/\.ingredient-row\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  expect(wxss).toMatch(
+    /\.ingredient-amount\s*\{[^}]*min-width:\s*0;[^}]*white-space:\s*normal;[^}]*word-break:\s*break-all;[^}]*flex:\s*0 1 auto;/s,
+  );
+  expect(wxss).toMatch(/\.step-index\s*\{[^}]*background:\s*#596326;/s);
+  expect(wxss).toMatch(
     /\.primary-button,\s*\.secondary-button\s*\{[^}]*min-height:\s*(?:88|9\d)rpx;/s,
   );
 });
@@ -211,6 +227,10 @@ test('builds ordered snapshot presentations and leaves legacy rows compact', asy
   expect(instance.data.dishes[0]).toMatchObject({
     scopeLabel: '自家菜谱',
     showSnapshotDetails: true,
+    method: {
+      name: maximumMethodName,
+      cookingStyle: maximumCookingStyle,
+    },
   });
   expect(
     instance.data.dishes[0].method?.steps.map((step) => step.instruction),
@@ -221,7 +241,7 @@ test('builds ordered snapshot presentations and leaves legacy rows compact', asy
       amountLabel: ingredient.amountLabel,
     })),
   ).toEqual([
-    { name: '番茄', amountLabel: '2个' },
+    { name: '番茄', amountLabel: maximumAmountLabel },
     { name: '鸡蛋', amountLabel: '适量' },
   ]);
   expect(instance.data.dishes[1]).toMatchObject({

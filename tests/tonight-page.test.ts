@@ -33,7 +33,7 @@ interface TonightPageInstance {
   onShow(): void;
   onHide(): void;
   onUnload(): void;
-  loadMenu(): Promise<void>;
+  loadMenu(successNotice?: string): Promise<void>;
   onChooseRecipes(): void;
   onConfirmMenu(): Promise<void>;
   onCompleteMenu(): Promise<void>;
@@ -220,6 +220,11 @@ test('renders household context with existing source semantics and safe actions'
   expect(wxss).not.toContain('.primary-button[disabled]');
   expect(wxss).toMatch(/\.primary-button--disabled\s*\{/);
   expect(wxss).toMatch(/\.secondary-button\s*\{[^}]*min-height:\s*88rpx;/s);
+  expect(wxss).toMatch(/\.dish-copy\s*\{[^}]*width:\s*0;[^}]*flex:\s*1 1 0%;/s);
+  expect(wxss).toMatch(
+    /\.dish-context\s*\{[^}]*min-width:\s*0;[^}]*white-space:\s*normal;[^}]*word-break:\s*break-all;/s,
+  );
+  expect(wxss).toMatch(/\.source-label\s*\{[^}]*flex:\s*0 0 auto;/s);
 });
 
 test('prepares household and system menu rows without changing order or BOTH source', async () => {
@@ -255,6 +260,31 @@ test('prepares household and system menu rows without changing order or BOTH sou
   });
 });
 
+test('keeps a maximum-length household method context intact', async () => {
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const maximumMethodName = '慢'.repeat(40);
+  const app = createAppMock();
+  app.getTodayMenu.mockResolvedValue(
+    menu('DRAFT', 4, [
+      dish({
+        method: {
+          id: 21,
+          name: maximumMethodName,
+          cookingStyle: '炒',
+        },
+      }),
+    ]),
+  );
+  runtime.getApp = () => app;
+
+  await definition.loadMenu.call(instance);
+
+  expect(instance.data.dishes[0].contextLabel).toBe(
+    `自家菜谱 · ${maximumMethodName}`,
+  );
+});
+
 test('polls immediately every eight seconds and stops when hidden', async () => {
   jest.useFakeTimers();
   const definition = await loadTonightPage();
@@ -271,6 +301,23 @@ test('polls immediately every eight seconds and stops when hidden', async () => 
   definition.onHide.call(instance);
   jest.advanceTimersByTime(8000);
   expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+  await flushPromises();
+});
+
+test('stops polling when the page unloads', async () => {
+  jest.useFakeTimers();
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  runtime.getApp = () => app;
+
+  definition.onShow.call(instance);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(1);
+
+  definition.onUnload.call(instance);
+  jest.advanceTimersByTime(8000);
+
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(1);
   await flushPromises();
 });
 
@@ -347,4 +394,55 @@ test('reloads the latest menu after a version conflict without replaying confirm
   expect(instance.data.menu).toEqual(latest);
   expect(instance.data.dishes.map((item) => item.recipeId)).toEqual([20]);
   expect(app.confirmTodayMenu).toHaveBeenCalledTimes(1);
+  expect(instance.data.noticeMessage).toBe(
+    '菜单已被对方更新，请确认最新内容后重新保存',
+  );
+});
+
+test('keeps the conflict notice after a fast complete refresh without replay or navigation', async () => {
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const confirmed = menu('CONFIRMED', 5);
+  const latest = menu('CONFIRMED', 7, [dish({ recipeId: 20 })]);
+  const app = createAppMock();
+  app.getTodayMenu
+    .mockResolvedValueOnce(confirmed)
+    .mockResolvedValueOnce(latest);
+  app.completeTodayMenu.mockRejectedValueOnce(
+    createPageApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+  );
+  runtime.getApp = () => app;
+  await definition.loadMenu.call(instance);
+
+  await definition.onCompleteMenu.call(instance);
+  await flushPromises();
+
+  expect(app.completeTodayMenu).toHaveBeenCalledTimes(1);
+  expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
+  expect(instance.data.menu).toEqual(latest);
+  expect(instance.data.noticeMessage).toBe(
+    '菜单已被对方更新，请确认最新内容后重新保存',
+  );
+  expect(runtime.wx?.navigateTo).not.toHaveBeenCalled();
+});
+
+test('shows the refresh failure when conflict recovery cannot load the latest menu', async () => {
+  const definition = await loadTonightPage();
+  const instance = createInstance(definition);
+  const app = createAppMock();
+  app.getTodayMenu
+    .mockResolvedValueOnce(menu('DRAFT', 4))
+    .mockRejectedValueOnce(new Error('offline'));
+  app.confirmTodayMenu.mockRejectedValueOnce(
+    createPageApiError('DINNER_MENU_VERSION_CONFLICT', '菜单已更新'),
+  );
+  runtime.getApp = () => app;
+  await definition.loadMenu.call(instance);
+
+  await definition.onConfirmMenu.call(instance);
+  await flushPromises();
+
+  expect(app.confirmTodayMenu).toHaveBeenCalledTimes(1);
+  expect(instance.data.menu?.version).toBe(4);
+  expect(instance.data.noticeMessage).toBe('菜单加载失败，请稍后重试');
 });

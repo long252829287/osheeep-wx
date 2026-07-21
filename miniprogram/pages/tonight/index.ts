@@ -54,7 +54,7 @@ Page({
     stopPolling = undefined;
   },
 
-  async loadMenu() {
+  async loadMenu(successNotice = '') {
     const hasSnapshot = Boolean(this.data.menu);
     if (!hasSnapshot) this.setData({ loading: true, errorMessage: '' });
     try {
@@ -74,7 +74,7 @@ Page({
         menu,
         dishes: toDishViews(menu.dishes),
         errorMessage: '',
-        noticeMessage: '',
+        noticeMessage: successNotice,
       });
     } catch (error) {
       const message =
@@ -145,7 +145,7 @@ Page({
       error instanceof ApiError &&
       error.errorCode === 'DINNER_MENU_VERSION_CONFLICT'
     ) {
-      void this.loadMenu();
+      void this.loadMenu(message);
     }
   },
 

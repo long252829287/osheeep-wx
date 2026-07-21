@@ -29,17 +29,17 @@
 .consensus-label { padding: 4rpx 10rpx; border-radius: 12rpx; background: #f3f4e8; color: #6d713a; font-size: 19rpx; font-weight: 650; white-space: nowrap; }
 .snapshot-section { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #e8dfd2; }
 .snapshot-heading { color: #b94c26; font-size: 24rpx; font-weight: 720; }
-.method-summary { display: flex; align-items: center; gap: 12rpx; margin-top: 12rpx; flex-wrap: wrap; }
-.method-name { color: #3f3c36; font-size: 27rpx; font-weight: 700; }
-.method-style { padding: 4rpx 11rpx; border-radius: 12rpx; background: #f3f4e8; color: #6d713a; font-size: 20rpx; line-height: 28rpx; }
+.method-summary { display: flex; min-width: 0; align-items: center; gap: 12rpx; margin-top: 12rpx; flex-wrap: wrap; }
+.method-name { min-width: 0; color: #3f3c36; font-size: 27rpx; font-weight: 700; word-break: break-all; flex: 1 1 240rpx; }
+.method-style { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 4rpx 11rpx; border-radius: 12rpx; background: #f3f4e8; color: #6d713a; font-size: 20rpx; line-height: 28rpx; white-space: normal; word-break: break-all; flex: 0 1 auto; }
 .method-steps { display: flex; gap: 14rpx; margin-top: 18rpx; flex-direction: column; }
 .method-step { display: grid; min-width: 0; grid-template-columns: 38rpx minmax(0, 1fr); align-items: flex-start; gap: 12rpx; }
-.step-index { display: flex; width: 38rpx; height: 38rpx; align-items: center; justify-content: center; border-radius: 50%; background: #7b823b; color: #fff; font-size: 19rpx; line-height: 38rpx; }
+.step-index { display: flex; width: 38rpx; height: 38rpx; align-items: center; justify-content: center; border-radius: 50%; background: #596326; color: #fff; font-size: 19rpx; line-height: 38rpx; }
 .step-instruction { min-width: 0; padding-top: 3rpx; color: #57534c; font-size: 23rpx; line-height: 1.55; word-break: break-all; }
 .ingredient-list { margin-top: 10rpx; }
-.ingredient-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 20rpx; padding: 12rpx 0; border-bottom: 1rpx solid #eee6da; }
-.ingredient-name { min-width: 0; color: #555149; font-size: 23rpx; line-height: 1.45; word-break: break-all; }
-.ingredient-amount { color: #73783c; font-size: 23rpx; font-weight: 650; line-height: 1.45; white-space: nowrap; flex: 0 0 auto; }
+.ingredient-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 20rpx; padding: 12rpx 0; border-bottom: 1rpx solid #eee6da; flex-wrap: wrap; }
+.ingredient-name { min-width: 0; color: #555149; font-size: 23rpx; line-height: 1.45; word-break: break-all; flex: 1 1 200rpx; }
+.ingredient-amount { min-width: 0; max-width: 100%; color: #73783c; text-align: right; font-size: 23rpx; font-weight: 650; line-height: 1.45; white-space: normal; word-break: break-all; flex: 0 1 auto; }
 .primary-button, .secondary-button { display: flex; min-height: 90rpx; align-items: center; justify-content: center; margin-top: 34rpx; border-radius: 20rpx; font-size: 29rpx; font-weight: 690; line-height: 90rpx; }
 .primary-button { background: #ca5325; color: #fff; }
 .secondary-button { margin-top: 18rpx; border: 2rpx solid #ca5325; background: transparent; color: #ca5325; }

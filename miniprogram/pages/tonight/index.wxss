@@ -39,11 +39,11 @@
 .dish-card { display: flex; min-height: 156rpx; align-items: center; padding: 18rpx 10rpx; border-bottom: 1rpx solid #e7ded0; }
 .dish-card--both { margin: 8rpx -18rpx; padding: 18rpx 28rpx; border: 1rpx solid #d9d9bc; border-left: 8rpx solid #7b823b; border-radius: 22rpx; background: #fbfaf2; }
 .dish-image { width: 136rpx; height: 136rpx; border-radius: 22rpx; background: #eee5d8; flex: 0 0 auto; }
-.dish-copy { min-width: 0; margin-left: 22rpx; flex: 1; }
+.dish-copy { width: 0; min-width: 0; margin-left: 22rpx; flex: 1 1 0%; }
 .dish-name { font-size: 30rpx; font-weight: 710; }
-.dish-context { margin-top: 6rpx; color: #73783c; font-size: 21rpx; line-height: 1.4; }
+.dish-context { min-width: 0; margin-top: 6rpx; color: #73783c; font-size: 21rpx; line-height: 1.4; white-space: normal; word-break: break-all; }
 .dish-meta { margin-top: 12rpx; color: #7a766e; font-size: 23rpx; }
-.source-label { margin-left: 10rpx; font-size: 25rpx; font-weight: 680; white-space: nowrap; }
+.source-label { margin-left: 10rpx; font-size: 25rpx; font-weight: 680; white-space: nowrap; flex: 0 0 auto; }
 .source-label--mine { color: #c84d20; }
 .source-label--partner { color: #426687; }
 .source-label--both { color: #7b823b; }

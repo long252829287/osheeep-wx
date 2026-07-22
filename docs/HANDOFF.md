@@ -10,21 +10,21 @@
 
 项目是微信小程序“小家开饭”：两个人加入同一个家庭，分别选择想吃的菜，合并、确认并完成今晚菜单，再回看做饭记录。
 
-当前任务不是立即提审，而是把已可用的 MVP 补成用户心中的正式版。家庭已发布菜谱接入找菜、今晚菜单和不可变做饭记录已经在本地候选完成；两人家庭管理的独立规格和 14 项实施计划也已完成独立后端/产品/小程序复核，但尚未编码。仍需收口的核心缺口是：
+当前任务不是立即提审，而是把已可用的 MVP 补成用户心中的正式版。家庭已发布菜谱接入找菜、今晚菜单和不可变做饭记录已经在本地候选完成；两人家庭管理的独立规格和 14 项实施计划已经完成，其中后端 Task 1–5 已实现并推送，Task 6–9、Product Design Task 10 和小程序 Task 11–14 仍待完成。仍需收口的核心缺口是：
 
 1. 家庭自定义菜谱的外部发布证据、共同编辑、版本修订、归档、复制和多做法变体。
-2. 可管理的两人家庭：名称、成员、退出、移除、转让和解散。
+2. 两人家庭管理剩余能力：管理权转让、解散/注销整合、历史 actor、完整契约/并发证据、管理 UI 和原生 QA。
 3. 完整一致的加载、成功、失败、冲突、空状态、消息与可选订阅提醒。
 4. 用授权可追溯的真实菜品成品照替换开发期生成式占位图。
 5. 菜谱详情/做法选择、库存删除/单位/自定义食材、完成后库存扣减等收口能力。
 
 ### 现在处于什么状态
 
-- 没有已知的编译、单测或静态检查故障。2026-07-22 当前实现的后端默认测试 438/438、V7 迁移 MySQL 1/1、家庭菜谱端到端 MySQL 6/6；小程序 34 个套件、343/343 通过，typecheck、lint、format check 和 diff check 全绿。
+- 没有已知的编译、单测或静态检查故障。2026-07-22 当前后端 HEAD 的默认测试 735/735 通过；Task 5 另在一次性、仅回环地址的 MySQL 8 中通过 `DinnerMembershipTerminationMySqlIT` 2/2。V7 迁移 1/1、家庭菜谱端到端 6/6 是此前里程碑证据。小程序仍是 34 个套件、343/343 通过，typecheck、lint、format check 和 diff check 全绿。
 - 食材库存、家庭自定义菜谱首个竖切，以及“家庭已发布菜谱 → 找菜 → 今晚菜单 → 完成时不可变记录”的完整本地链路均已在 `main` 实现；代码尚未部署或上传。
 - 自定义菜谱已经覆盖个人草稿、自动保存、食材、默认做法、已审核图片、预览和发布恢复。真实微信内容安全联调返回 503，草稿正确保留，但尚无原生发布成功证据。
-- 当前候选仍然不能上架；剩余卡点包括 8 张系统菜真实照片、真实内容安全发布、第二授权账号、家庭管理实现、统一反馈/消息、库存与菜谱变体/扣减、生产 V7/V8 迁移与部署、体验版上传，以及真实设备、弱网、合规和提审验收。
-- 不要再把“已发布家庭菜谱接入找菜/今晚菜单”或“编写家庭管理规格”列为下一任务。下一段安全本地开发从 [家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md) Task 1 的 V8 持久化契约开始。
+- 当前候选仍然不能上架；剩余卡点包括 8 张系统菜真实照片、真实内容安全发布、第二授权账号、家庭管理 Task 6–14、统一反馈/消息、库存与菜谱变体/扣减、生产 V8 迁移与部署、体验版上传，以及真实设备、弱网、合规和提审验收。
+- 不要再把“已发布家庭菜谱接入找菜/今晚菜单”“编写家庭管理规格”或家庭管理 Task 1–5 列为下一任务。下一段安全本地开发从 [家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md) Task 6“管理权转让”开始。
 
 ### 用户的协作要求
 
@@ -37,16 +37,16 @@
 
 项目包含两个独立仓库，用户已批准直接在 `main` 工作。
 
-| 项目       | 本地路径                                                             | 当前实现 HEAD | 2026-07-22 文档提交前检查快照                                                           |
-| ---------- | -------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
-| 微信小程序 | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `a707482`     | `main`；本文提交前实现与 `origin/main` 同步，只有本轮家庭管理规格/计划/HANDOFF 文档改动 |
-| Java 后端  | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `b56a882`     | `main`，工作区 clean，本文提交前与 `origin/main` 同步                                   |
+| 项目       | 本地路径                                                             | 当前实现 HEAD | 本次交接状态                                                                              |
+| ---------- | -------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| 微信小程序 | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-wx`     | `7a6f881`     | `main`；实现未变，本轮新增家庭管理规格、计划和交接文档；交接提交后应与 `origin/main` 同步 |
+| Java 后端  | `/Users/longlonglong/Developer/Personal/Apps/osheeep/osheeep-server` | `1df9b88`     | `main`，Task 1–5 已提交并推送；交接时工作区 clean，`origin/main...main` 为 `0 0`          |
 
 说明：
 
 - 前端是微信原生小程序（TypeScript + WXML + WXSS），不是 React/Taro/uni-app；后端是 Java 21 + Spring Boot 3.5.16 + MyBatis-Plus + Flyway + MySQL 8。
-- `a707482` 是家庭管理文档工作开始前的小程序实现 HEAD；它已包含家庭菜谱菜单链路的失效恢复、轮询、长文案、库存摘要和最终 QA 文档。
-- `b56a882` 是家庭管理文档工作开始前的后端 HEAD；它已包含 V7、统一发现、菜单身份、完成快照、损坏聚合防护、事务前验证与一次性 MySQL 证据文档。
+- `7a6f881` 是本轮小程序仓库的实现/设计文档 HEAD；它包含家庭管理规格、14 项计划及 V8 持久化约束澄清，但没有新增家庭管理页面代码。
+- `1df9b88` 是当前后端实现 HEAD；它在旧基线 `b56a882` 之上完成家庭管理 Task 1–5：V8、ACTIVE 授权、统一锁序、角色/邀请码生命周期，以及成员退出/移除。
 - 上述 ahead 数只相对当前本地 tracking ref；新对话必须重新检查。需要确认 GitHub 新变化时先执行 `git fetch`，然后检查 divergence 和本地 diff；不要在未知工作区上直接 `git pull`。
 - 本轮一次性 MySQL 8 容器和测试进程已清理；没有执行生产部署、生产 Flyway、小程序上传、提审或发布。
 - 小程序仓库已忽略 `.superpowers/` 本地临时证据；不要将其中的调试脚本或空白截图误提交。
@@ -117,7 +117,7 @@ git rev-list --left-right --count origin/main...main
 - 注销时微信身份复核、旧 JWT 失效、剩余成员历史保留和最后成员数据清理。
 - 品牌文案统一为“小家开饭”。
 
-旧候选曾完成双账号、iPhone、Android 和弱网回归。这只是历史记录，不是当前 V7 + `b80d6f8` 候选的真机结论。
+旧候选曾完成双账号、iPhone、Android 和弱网回归。这只是历史记录，不是当前 V8/Task 1–5 后端与未改动小程序实现的真机结论。
 
 ### 3.2 库存与找菜后端基线（已被 3.6 扩展）
 
@@ -161,7 +161,7 @@ git rev-list --left-right --count origin/main...main
 - 165/165 测试通过；食材库存与找菜两个聚焦套件共 51 项。
 - `npm run typecheck`、`npm run lint`、`npm run format:check`、`git diff --check` 全部退出 0。
 
-库存/找菜基线曾只有 145 项默认测试证据；该旧数字先被 3.6 的 273 项后端全量与显式 MySQL 竖切复验取代，再被 3.7 当前 HEAD 的 438 项默认测试、迁移 1/1 和端到端 6/6 证据取代。默认 `mvn test` 仍不能单独证明真实数据库迁移或生产部署，必须把它与专用 MySQL 集成测试分开陈述。
+库存/找菜基线曾只有 145 项默认测试证据；该旧数字先被 3.6 的 273 项后端全量与显式 MySQL 竖切复验取代，再被 3.7 的 438 项默认测试、迁移 1/1 和端到端 6/6 证据取代，当前最新证据见 3.8。默认 `mvn test` 仍不能单独证明真实数据库迁移或生产部署，必须把它与专用 MySQL 集成测试分开陈述。
 
 ### 3.6 家庭自定义菜谱首个竖切（V6 历史候选）
 
@@ -180,7 +180,7 @@ git rev-list --left-right --count origin/main...main
 - 图片选择页：本地筛选服务端批准资产，展示作者、许可、来源和获取日期，不打开任意第三方页面。
 - 原生 375/390/430px QA 已完成；期间发现并修复家庭菜谱原生 `<button>` 行在 430px 收缩成窄列的问题。
 
-2026-07-20 的实际验证如下；这些数字是历史里程碑，当前 HEAD 的新证据见 3.7：
+2026-07-20 的实际验证如下；这些数字是历史里程碑，V7 后续证据见 3.7，最新后端证据见 3.8：
 
 - 后端默认全量 273/273 通过。
 - 显式 `DinnerCustomRecipeMySqlIT` 在专用 MySQL 8 测试库 1/1 通过；该库运行时已在 Flyway V6，本轮最后一次复验是“V6 current/up-to-date”，不能写成从空库重新执行 V1–V6。
@@ -191,9 +191,9 @@ git rev-list --left-right --count origin/main...main
 
 设计与交互证据见 [家庭自定义菜谱 QA](design/qa/custom-recipes/custom-recipes-design-qa.md)。其中视觉结果通过；真实发布仍受内容安全 503 和第二授权账号缺失阻塞。
 
-### 3.7 家庭已发布菜谱接入找菜、今晚菜单与不可变记录（当前本地候选）
+### 3.7 家庭已发布菜谱接入找菜、今晚菜单与不可变记录（V7 历史候选）
 
-后端实现 HEAD `437768c` 已完成：
+后端实现提交 `437768c` 已完成：
 
 - 只新增 Flyway `V7__connect_household_recipes_to_menus.sql`，为菜单选择保存服务端解析出的 `recipe_version` 与默认做法身份，并为做饭记录增加菜谱范围、版本、份数、做法、步骤和食材 JSON 快照字段；V1–V6 未修改。
 - `GET /api/dinner/recipes` 现在把系统菜和当前家庭 `PUBLISHED` 菜谱放进同一个库存匹配、临时包含/排除、“只看能做”和稳定排序管线；草稿、归档、其他家庭和损坏聚合不会泄漏到结果。
@@ -201,7 +201,7 @@ git rev-list --left-right --count origin/main...main
 - 完成菜单前，服务端批量复验家庭、菜谱版本、做法归属、图片、食材、步骤及同菜多选择行的一致性；所有 JSON 在创建记录前验证并编码，记录与完整菜品快照在同一事务写入。历史详情只读快照，不回查当前菜谱、做法或图片资产。
 - 旧记录保持兼容：输出 `scope=SYSTEM`、`recipeVersion=1`、`servings=null`、`method=null`、`ingredients=[]`，不会伪造旧记录没有保存过的细节。
 
-小程序实现 HEAD `b80d6f8` 已完成：
+小程序实现提交 `b80d6f8` 已完成：
 
 - 找菜页沿用统一结果顺序和现有“加入”交互，并以文字标签标识“自家菜谱”；发送菜单选择时仍不信任客户端菜谱版本或做法身份。
 - 今晚菜单展示自家菜谱、默认做法和来源上下文；409 保留用户待加入项且不自动重放，`DINNER_RECIPE_INVALID` 会给出明确恢复提示，并刷新发现结果和菜单。
@@ -217,16 +217,44 @@ git rev-list --left-right --count origin/main...main
 
 证据边界：上述发布家庭菜来自隔离 MySQL 测试夹具或微信开发者工具本地视觉夹具，不是微信真实内容安全发布成功、第二授权账号、体验版、真机、生产 V7 迁移或线上部署证据。
 
+### 3.8 两人家庭管理后端 Task 1–5（当前后端候选）
+
+后端 `main` 已按顺序完成并推送以下提交：
+
+- `3a0158d feat: add household management persistence`
+- `e736e1e fix: require active household membership`
+- `413c1a5 refactor: unify household write locking`
+- `743ced0 feat: add household roles and invite lifecycle`
+- `1df9b88 feat: add household leave and removal`
+
+已经落地的边界：
+
+- 只新增向前迁移 `V8__add_household_management.sql`；家庭、成员、邀请码和危险操作获得显式生命周期、角色、版本与审计字段。V1–V7 未修改。
+- 所有家庭域读取和写入均要求家庭与 membership 同时为 `ACTIVE`；已退出、被移除或家庭非活跃的用户不能继续访问库存、家庭菜谱、菜单和历史。
+- 共享写事务统一使用 `user → household → ACTIVE membership(id ASC) → invite → menu → recipe → inventory → household ingredient` 锁序；菜谱锁按所有涉及的 recipe ID 全局升序，包括需要保留的系统来源行。
+- 创建者为 `OWNER`，加入者为 `MEMBER`；创建/加入、改名和邀请码创建、轮换、撤销已经采用角色、容量、版本与生命周期约束。
+- 已新增 `POST /api/dinner/household/members/me/leave` 和 `POST /api/dinner/household/members/{membershipId}/removal`。普通成员可退出；OWNER 不能直接退出；只有 OWNER 能移除另一名 ACTIVE MEMBER。
+- 成员终止会撤销未使用邀请码、重置未完成菜单并删除该成员选择、把其个人草稿带离原家庭并移除草稿中的旧家庭自定义食材引用。共享库存、已发布/归档菜谱和已完成历史保留在原家庭。
+- 危险操作使用严格 UUID v4 幂等键、HMAC-SHA256 语义指纹、事务外预查，以及锁 actor user 后立即 `FOR UPDATE` 二次重查。相同 key/相同语义可在成员状态变化后重放；同 key/不同语义稳定冲突；成功结果保留 14 天并有有界清理任务。
+
+2026-07-22 的当前证据：
+
+- 后端 `mvn clean test`：735/735 通过，0 failures、0 errors、0 skipped。
+- 一次性、仅回环地址的 MySQL 8 中，`DinnerMembershipTerminationMySqlIT` 2/2 通过：覆盖 fresh V1→V8、真实双事务 actor-row lock/replay、系统来源保留、精确 14 天到期边界，以及 operation 插入失败时跨聚合整体回滚。
+- 独立最终代码审查没有发现 P0/P1/P2；两个仓库在提交前均通过 diff/status 检查。
+
+证据边界：V8 只在源码、默认测试和隔离 MySQL 中验证；没有应用生产 Flyway、构建并部署新 JAR、上传小程序、真机回归或线上验证。家庭管理转让、解散/注销整合、历史 actor、完整 MySQL 矩阵和小程序 UI 仍未完成。
+
 ## 4. 当前真正的阻塞与缺口
 
 ### 4.1 正式发布阻断项
 
 1. **真实照片库未完整交付。** 自定义菜谱竖切已有 1 张核验过的 CC0 照片；`miniprogram/assets/recipes/` 中 8 张系统菜图仍是开发期生成式占位，没有正式发行许可证据。
 2. **自定义菜谱真实发布未完成外部联调。** 本地原生发布到微信内容安全返回 503，且本轮只有一个授权开发账号；需要在可用的真实审核环境中补成功发布与双账号可见证据。
-3. **家庭管理已设计、未实现。** [产品/技术设计](superpowers/specs/2026-07-22-household-management-design.md) 和 [实施计划](superpowers/plans/2026-07-22-household-management.md) 已完成并消除独立复核的 P0/P1 歧义；代码仍只有创建/加入/邀请码，没有 V8、普通退出、移除、转让、解散和新管理 UI。
+3. **家庭管理后端只完成 Task 1–5。** V8、ACTIVE 授权、统一锁序、角色/邀请码和退出/移除已完成；管理权转让、解散/账号注销整合、历史 actor、完整 MySQL 并发矩阵、Product Design 选型和小程序管理 UI（Task 6–14）仍未完成。
 4. **统一反馈和消息系统未实现。** 现有页面有局部提示，但没有统一错误码映射、消息中心和可选微信订阅提醒。
 5. **产品链路仍有缺口。** 已发布家庭菜谱接入找菜、今晚菜单和完成记录已经完成；剩余的是家庭菜谱详情/共同编辑、版本修订、归档、复制与多做法变体，库存删除 UI、单位选择、家庭自定义食材、双方偏好排序，以及菜单完成后的可编辑、幂等库存扣减。
-6. **当前候选没有部署/上传。** V7 后端源码只在本地和一次性 MySQL 8 中验证，未应用到生产数据库；不得复用旧 `target` JAR。当前小程序代码未上传、未提审、未发布。
+6. **当前候选没有部署/上传。** V8 后端源码已推送，但只在本地和一次性 MySQL 8 中验证，未应用到生产数据库；不得复用旧 `target` JAR。当前小程序代码未上传、未提审、未发布。
 7. **当前候选没有真实环境回归。** 尚未重做第二授权账号、iPhone、Android、弱网、真实发布内容安全、生产迁移、线上联调和回滚演练。开发者工具的 375/390/430px 模拟器验证不能替代这些项目。
 8. **合规与提审材料必须更新。** 自定义文本会改变旧的“不包含 UGC”事实；图片资产、内容安全、隐私声明和微信订阅模板都需要对应复核。
 
@@ -240,14 +268,14 @@ git rev-list --left-right --count origin/main...main
 ### 阶段 0：接手校验
 
 1. 重新检查两个仓库的 status/log/ahead-behind，不覆盖未知改动。
-2. 读 [正式版产品设计](superpowers/specs/2026-07-15-formal-release-product-design.md)、[库存/找菜实施计划](superpowers/plans/2026-07-15-recipe-inventory-discovery.md) 和 [设计 QA](../design-qa.md)。
+2. 读 [正式版产品设计](superpowers/specs/2026-07-15-formal-release-product-design.md)、[两人家庭管理设计](superpowers/specs/2026-07-22-household-management-design.md)、[两人家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md) 和 [设计 QA](../design-qa.md)。
 3. 如果要修改页面，按用户要求使用 `product-design` skill，建立参考图、实现图和同视口对比，不要只看一张截图就宣称通过。
 
 ### 阶段 1：自定义菜谱及晚饭链路（本地已完成，外部验收未完成）
 
 1. V6、草稿/发布模型、默认做法、已审核图片、自动保存和家庭菜谱列表已经按独立计划完成。
 2. V7、统一发现、今晚菜单菜谱身份、默认做法和完成时不可变快照已按 [家庭菜谱菜单链路计划](superpowers/plans/2026-07-21-household-recipes-discovery-menu.md) 完成本地实现和隔离 MySQL 验证；不要重复实现或把它写成待办。
-3. 不要修改 V1–V7 的已提交语义；后续数据库演进从 V8 开始。
+3. 不要修改 V1–V8 的已提交语义；后续确需新增数据库结构时从 V9 开始。
 4. 仍需外部条件：可用的真实微信内容安全调用、第二授权账号、体验版/真机环境。补证时不得用测试夹具冒充真实发布。
 5. 已发布菜谱共同编辑、修订、变体、复制与归档仍需独立规格和版本语义；继续全程 TDD，每一个共享写操作都带版本或幂等保护，历史快照不受后续菜谱修改影响。
 
@@ -271,9 +299,11 @@ git rev-list --left-right --count origin/main...main
 - [两人家庭管理设计](superpowers/specs/2026-07-22-household-management-design.md)
 - [两人家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md)
 
-下一项是计划 Task 1：新增只向前的 V8 持久化契约和早期一次性 MySQL smoke。随后按计划依次完成 ACTIVE 授权、统一锁序、角色/邀请码、退出移除、转让、解散/注销、历史 actor、完整 MySQL 证据、Product Design 选型、小程序实现和原生 QA。Task 10 必须生成恰好三套 OWNER 方向并暂停等待用户选定，不能由实施者自行挑选。
+Task 1–5 已完成：V8 持久化、ACTIVE 授权、统一锁序、角色/邀请码，以及退出/移除均在 `osheeep-server@1df9b88`。下一项是计划 Task 6：管理权转让。随后依次完成 Task 7 解散/注销整合、Task 8 历史 actor、Task 9 完整 MySQL 证据、Task 10 Product Design 选型，以及 Task 11–14 小程序实现和原生 QA。Task 10 必须生成恰好三套 OWNER 方向并暂停等待用户选定，不能由实施者自行挑选。
 
-现有 membership 没有可用于退出/移除的状态字段，库存、找菜等服务当前主要以“能查到 membership”作为授权前提。家庭管理迁移必须同时改造所有家庭业务的服务端授权检查，只允许活跃成员访问，并用回归测试证明已退出/被移除成员不能继续读写库存、菜谱、菜单和历史。
+Task 6 只实现 `POST /api/dinner/household/ownership-transfer`。复用 Task 5 的两阶段 operation 预查/actor 锁内重查、HMAC 指纹、14 天结果保留和统一锁序；锁定 household 及全部 ACTIVE membership 后，原 OWNER 降为 MEMBER、目标 MEMBER 升为 OWNER，双方 membership version 和 household version 各加 1，并更新 `admin_changed_at`。转让不得修改 `created_by`、邀请码或 invite revision、菜单、菜谱、草稿、历史、库存。必须覆盖 OWNER-only、单人家庭、self/foreign/inactive target、家庭/目标版本冲突、同 key 重放与并发，以及“A 转给 B 后 A 可正常退出、B 保持 OWNER 且共享数据不变”。
+
+Task 6 的本地提交目标是 `feat: add household ownership transfer`。新对话不得继承本轮 push 授权，也不得连接生产、执行生产 Flyway、部署或提前开始小程序 UI。
 
 ### 阶段 5：统一提示、消息与订阅
 
@@ -283,7 +313,7 @@ git rev-list --left-right --count origin/main...main
 
 ### 阶段 6：新候选发布
 
-1. 产生一个由 HEAD 构建的新 JAR，先在隔离 MySQL 中验证 V5+ 迁移和双事务边界。
+1. 产生一个由 HEAD 构建的新 JAR，先在隔离 MySQL 中验证所有受支持起点迁移至 V8，并完成 Task 9 的真实双事务与回滚矩阵。
 2. 在用户明确授权下，按固定 JAR + systemd 方式备份、部署、验证和保留回滚点。
 3. 上传新小程序体验版，由用户确认覆盖和版本。
 4. 对该候选重做双账号、iPhone、Android、弱网、隐私、内容安全、真实图片许可和数据迁移回归。
@@ -294,7 +324,7 @@ git rev-list --left-right --count origin/main...main
 
 - 同一家庭、同一业务日只有一份菜单；家庭时区中凌晨 4 点前仍归前一天。
 - 客户端提交当前用户的完整选择集合，合并结果由服务端计算。
-- 菜单写操作带 `version`；确认和完成使用 UUID v4 幂等键。冲突后刷新并要求用户显式重试，不自动重放写请求。
+- 菜单写操作带 `version`；确认和完成使用 UUID v4 幂等键。菜单选择的版本冲突后刷新并要求用户显式重试，不自动重放普通写请求；家庭危险操作只重放已持久化且 key/语义完全匹配的成功结果。
 - 做饭记录使用完成时快照，后续菜谱、做法、图片或成员变更不得改写历史。
 - 菜单选择请求仍只接受当前用户的完整 `recipeIds` 集合和菜单 `version`；菜谱范围、菜谱版本、默认做法与家庭归属由服务端解析并保存，不能信任客户端补充这些身份。
 - 家庭菜完成时必须在创建记录前复验菜谱版本、唯一活动默认做法、已审核不可变图片、食材与步骤 JSON；任何不一致整体失败，不能留下半条记录。
@@ -303,11 +333,15 @@ git rev-list --left-right --count origin/main...main
 - 并发创建重复键、锁等待和死锁要转为可恢复的 409 版本冲突，不能泄漏 SQL 错误。
 - 库存时间字段与 `Asia/Shanghai` 的转换已显式定义，不要恢复为依赖 JVM/数据库默认时区。
 - 家庭、成员、菜谱、库存和菜单权限必须由服务端根据当前身份计算，不信任客户端传入的家庭 ID、角色或创建者 ID。
+- 家庭域访问必须同时满足 user、household 和 membership 均为 `ACTIVE`；不能把“历史上存在过 membership”当作当前授权。
+- 活跃家庭至多两席，角色只有 `OWNER/MEMBER`，且必须恰有一个 ACTIVE OWNER；转让只能在同一事务内完成角色交换，任何中间失败整体回滚。
+- 家庭共享写事务必须保持 `user → household → ACTIVE membership(id ASC) → invite → menu → recipe → inventory → household ingredient` 锁序；所有相关 recipe ID 全局升序，不能按来源分批造成锁序反转。
+- 退出、移除、转让和解散等危险操作复用 operation 两阶段幂等：事务外预查，锁 actor user 后立即重查；幂等键为规范 UUID v4，指纹为 HMAC-SHA256，成功结果保留 14 天。不得把一次性微信 code、token、openid 或密钥写入指纹、结果或日志。
 
 当前主要 API 边界：
 
 - `/api/auth/wechat`：微信登录。
-- `/api/dinner/household*`：家庭、邀请码和加入。
+- `/api/dinner/household*`：家庭创建/读取/改名、成员管理快照、邀请码查询/轮换/撤销、加入，以及成员退出/移除。当前管理端点包括 `GET /api/dinner/household/members`、`PUT /api/dinner/household`、`GET /api/dinner/household/invite-code`、`POST /api/dinner/households/invite-code/refresh`、`POST /api/dinner/household/invite-code/revocation`、`POST /api/dinner/household/members/me/leave` 和 `POST /api/dinner/household/members/{membershipId}/removal`；管理权转让是下一项。
 - `/api/dinner/ingredients` 和 `/api/dinner/inventory*`：食材目录和家庭库存。
 - `GET /api/dinner/recipes`：把系统菜与当前家庭已发布且聚合完整的家庭菜统一做库存匹配、临时 include/exclude、`onlyCookable` 和稳定排序；返回 `scope`、`version`、无步骤的 `defaultMethod` 摘要、食材和匹配结果。
 - `/api/dinner/recipes/drafts`、`/api/dinner/recipes/family`、`/api/dinner/recipes/{id}*`：家庭菜谱草稿、列表、分步保存、详情和发布。
@@ -339,15 +373,16 @@ git rev-list --left-right --count origin/main...main
 
 ### 7.3 后端、数据库和测试
 
-- 从现在开始把 V1–V7 当作不可变迁移；后续模型使用 V8+，不要重写已提交迁移的语义。
-- 不要把默认 `mvn test` 的 438 项写成“真实 MySQL 集成已通过”。`*IT` 不在默认 Surefire 范围内，真实数据库验证必须显式选择测试，并通过原始进程环境、JDBC 实际 catalog 和 Flyway 实际 data source/schema 安全门。
+- 从现在开始把 V1–V8 当作不可变迁移；不要重写已提交迁移的语义。只有确需新增结构时才创建 V9+，不要为了每个任务机械增加迁移。
+- 不要把默认 `mvn test` 的 735 项写成“真实 MySQL 集成已通过”。`*IT` 不在默认 Surefire 范围内，真实数据库验证必须显式选择测试，并通过原始进程环境、JDBC 实际 catalog 和 Flyway 实际 data source/schema 安全门。
+- Task 5 的显式 MySQL 2/2 是当前 V8 事务证据；V7 迁移 1/1 和家庭菜谱 6/6 是历史里程碑。Task 9 仍需完成计划中的完整 V8 迁移、真实双事务并发和回滚矩阵，不能用现有 2 项测试冒充全部矩阵。
 - 不要在共享开发/生产库上跑写入型集成测试，也不要为了所谓“双事务覆盖”擅自修改真实数据。
 - 版本冲突处理必须保留用户输入，避免自动重放非幂等写入。
 
 ### 7.4 候选版、运维与安全
 
 - 代码 push、微信开发者工具上传、选为体验版、提交审核和正式发布是五个不同状态，不要混写。
-- 不要假设当前 `target/osheeep-server-0.0.1-SNAPSHOT.jar` 来自 HEAD 或包含 V7；部署前必须从已验证提交重新构建并核对制品。
+- 不要假设当前 `target/osheeep-server-0.0.1-SNAPSHOT.jar` 来自 HEAD 或包含 V8/Task 1–5；部署前必须从已验证提交重新构建并核对制品。
 - 生产部署方式已定为固定 `/opt/osheeep-server/osheeep-server.jar` + systemd + 浅层备份目录。不要擅自改成多 release 目录、容器编排或复杂 CI/CD。
 - 不要恢复旧 Node `my-backend` 或端口 3000；服务器上端口 3100 的 `osheeep-api` 是另一项既有服务，不得扰动。
 - 未登录访问受保护 API 得到 401 是预期的；健康判断使用服务器本机 `/actuator/health` 或公网 `/healthz`。
@@ -405,7 +440,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```bash
 export OSHEEEP_DB_HOST=127.0.0.1
 export OSHEEEP_DB_PORT=33307
-export OSHEEEP_DB_NAME=osheeep_it_v7
+export OSHEEEP_DB_NAME=osheeep_it_v8
 export OSHEEEP_DB_TEST_NAME="$OSHEEEP_DB_NAME"
 export OSHEEEP_ALLOW_EPHEMERAL_DATABASES=true
 export OSHEEEP_DB_USERNAME=root
@@ -421,11 +456,14 @@ export OSHEEEP_RABBITMQ_PASSWORD=guest
 export OSHEEEP_RABBITMQ_VHOST=/
 export OSHEEEP_WECHAT_APP_ID=osheeep-local-it-app
 export OSHEEEP_WECHAT_APP_SECRET=osheeep-local-it-app-secret
-mvn test -Dtest=DinnerHouseholdRecipeMenuMigrationMySqlIT -Dspring.profiles.active=local
-mvn test -Dtest=DinnerCustomRecipeMySqlIT -Dspring.profiles.active=local
+mvn test -Dtest=DinnerHouseholdManagementMigrationSmokeMySqlIT
+mvn test -Dtest=DinnerMembershipTerminationMySqlIT -Dspring.profiles.active=local \
+  -Dosheeep.dinner.household-operation-retention.initial-delay-ms=3600000
 ```
 
-后半组 JWT、Redis、RabbitMQ 和微信变量只是让 `local` profile 完整绑定的非生产占位配置；专项测试不会以它们冒充真实外部联调。迁移测试会为 fresh、V4、V6 起点创建带随机后缀的临时 catalog，端到端测试也只操作同一受控实例；测试会在 Flyway 前和 API 写入前再次检查实际 catalog。任何安全门或 catalog 不一致都应直接失败。不要用 Spring/JVM 参数覆盖原始环境变量，也不要把命令指向共享或生产库；完成后删除一次性实例。2026-07-22 的证据分别是迁移 1/1、端到端 6/6。
+后半组 JWT、Redis、RabbitMQ 和微信变量只是让 `local` profile 完整绑定的非生产占位配置；专项测试不会以它们冒充真实外部联调。migration smoke 覆盖 fresh/minimal-V7→V8；`DinnerMembershipTerminationMySqlIT` 还会从 fresh V1 迁移到 V8，并在同一受控实例中执行真实双事务和失败回滚验证。测试会在 Flyway 前和业务写入前检查实际 catalog。任何安全门或 catalog 不一致都应直接失败。不要用 Spring/JVM 参数覆盖原始环境变量，也不要把命令指向共享或生产库；完成后删除一次性实例。2026-07-22 的 Task 5 当前证据是 2/2。
+
+`DinnerHouseholdRecipeMenuMigrationMySqlIT` 1/1 和 `DinnerCustomRecipeMySqlIT` 6/6 属于 V7 历史证据，其中旧自定义菜谱测试仍断言 V7，不应直接拿当前 V8 基库命令复跑后宣称通过。Task 9 应按家庭管理计划补齐并更新完整 V8 MySQL 矩阵。
 
 ## 9. 什么时候必须暂停找用户
 
@@ -451,18 +489,18 @@ mvn test -Dtest=DinnerCustomRecipeMySqlIT -Dspring.profiles.active=local
 - [家庭菜谱菜单链路实施计划](superpowers/plans/2026-07-21-household-recipes-discovery-menu.md)：V7、后端批量组装/快照、小程序展示与验证任务的逐项记录。
 - [家庭菜谱菜单链路原生 QA](design/qa/household-recipe-menu/household-recipe-menu-qa.md)：找菜、今晚菜单和记录详情的 375/390/430px 证据、两个 P2 修复与证据边界。
 - [两人家庭管理设计](superpowers/specs/2026-07-22-household-management-design.md)：V8 生命周期、权限、锁序、邀请码、危险事务、注销、历史可见性、API 和小程序行为的真相来源。
-- [两人家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md)：从 V8 到三视口 QA 的 14 项可执行任务；当前下一步是 Task 1。
+- [两人家庭管理实施计划](superpowers/plans/2026-07-22-household-management.md)：从 V8 到三视口 QA 的 14 项可执行任务；Task 1–5 已完成，当前下一步是 Task 6 管理权转让。
 - [库存页方案 3 参考](design/formal-release/ingredient-inventory-final-direction.png)。
 - [找菜页方向](design/formal-release/recipe-discovery-final-direction.png)。
 - [微信提审清单](review-submission-checklist.md)：当前勾选状态属于旧候选，新候选必须重做。
 - [微信隐私指引材料](wechat-privacy-guide-materials.md)。
-- [后端 API 契约](../../osheeep-server/docs/api-contract.md)：已同步 V7 的统一发现、菜单选择身份、不可变记录、旧记录兼容和 2026-07-22 隔离 MySQL 证据；仍需以实时后端 HEAD 为准。
+- [后端 API 契约](../../osheeep-server/docs/api-contract.md)：仍以 V7 的统一发现、菜单选择身份和不可变记录为完整基线；家庭管理 Task 1–5 的新增行为暂以实时后端 HEAD、设计和实施计划为准，Task 9 必须同步契约与完整 MySQL 证据。
 - [后端生产运维手册](../../osheeep-server/deploy/production/OPERATIONS.md)：只在用户明确授权的生产操作中使用。
 
 ## 11. 新对话的建议开场
 
 完成第 1 节实时检查后，直接从下面的目标开始，不需要用户重复产品选择：
 
-> 先复核 `osheeep-server@b56a882` 与 `osheeep-wx@a707482` 之后的实时 Git 状态，阅读家庭管理设计与实施计划，不要重复家庭菜谱菜单链路或重新编写规格。若工作区无未知改动，直接执行家庭管理计划 Task 1：V8 持久化契约与早期一次性 MySQL smoke。任何时候都不要把本地 MySQL/视觉夹具写成真实发布、生产迁移、真机或上线证据；push 仍需当次明确授权。
+> 先复核 `osheeep-server@1df9b88` 与 `osheeep-wx@7a6f881` 之后的实时 Git 状态，完整阅读本交接、家庭管理设计与实施计划，不要重复 Task 1–5 或家庭菜谱菜单链路。若工作区无未知改动，直接以 TDD 执行家庭管理计划 Task 6：实现 `POST /api/dinner/household/ownership-transfer`，复用 Task 5 的 operation 两阶段幂等、actor 锁内重查和统一锁序；原 OWNER 与目标 ACTIVE MEMBER 原子交换角色，双方 membership version 和 household version 各加 1，并更新 `admin_changed_at`，但不得修改 `created_by`、邀请码、菜单、菜谱、草稿、历史或库存。覆盖权限、单人家庭、self/foreign/inactive target、版本冲突、并发同 key 重放，以及“转让后原 OWNER 可退出、共享数据不变”。只做本地代码、测试与 `feat: add household ownership transfer` 提交；不得连接生产、执行生产 Flyway、部署或开始小程序 UI，push 必须重新获得当次明确授权。
 
 一个阶段只在代码、测试、设计 QA、文档和 Git 状态均可追溯时结束。不要因为“页面能打开”就把正式版开发写成已完成。

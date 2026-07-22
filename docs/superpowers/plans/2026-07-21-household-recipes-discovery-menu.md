@@ -8,6 +8,15 @@
 
 **Tech Stack:** Java 21、Spring Boot 3.5.16、MyBatis-Plus 3.5.17、MySQL 8、Flyway、Jackson、JUnit 5、Mockito、MockMvc；微信原生小程序、TypeScript 5.9、WXML、WXSS、Jest；微信开发者工具原生模拟器。
 
+## Completion Evidence（2026-07-22，Asia/Shanghai）
+
+- 后端实现 HEAD：`437768c`；小程序实现 HEAD：`b80d6f8`（均为文档收口提交之前的功能提交）。
+- 后端默认全量：`mvn test`，438/438 通过；`git diff --check` 通过。
+- 一次性本地 MySQL 8.0.45：迁移 IT 1/1 通过，单个用例覆盖空库 V1→V7、生产形态 V4→V7、当前 V6→V7；双用户端到端 IT 6/6 通过。测试只连接 `127.0.0.1:33307`，临时目录无残留，容器已销毁。
+- 小程序默认全量：34/34 suites、343/343 tests 通过；typecheck、lint、format check、`git diff --check` 全部通过。
+- 微信开发者工具 Stable 2.01.2510290、基础库 3.16.2：找菜、今晚菜单、记录详情在 375×812、390×844、430×932 三个视口完成原生 QA；最终 Errors=0、Problems=0。两个 P2（长家庭菜名截断、库存摘要误显空态）已修复并复验，独立复核无剩余 P0–P3。
+- 证据边界：V7 尚未应用到生产，后端尚未部署，小程序尚未上传体验版、提审或发布；本地视觉 fixture 也不代表真实微信内容安全发布成功。
+
 ## Global Constraints
 
 - 设计真相来源是 `docs/superpowers/specs/2026-07-21-household-recipes-discovery-menu-design.md`；若实现发现规格缺口，先停下更新并重新确认规格，不在代码中临时猜测。
@@ -46,7 +55,7 @@
 - Produces snapshot fields: `recipeScope`, `recipeVersion`, `servings`, `methodId`, `methodName`, `cookingStyle`, `methodStepsJson`, `ingredientsJson`.
 - Preserves existing selection rows with version `1` and existing history rows with nullable new snapshot fields.
 
-- [ ] **Step 1: Write the failing migration/entity contract**
+- [x] **Step 1: Write the failing migration/entity contract**
 
 ```java
 class DinnerHouseholdRecipeMenuPersistenceContractTest {
@@ -85,7 +94,7 @@ class DinnerHouseholdRecipeMenuPersistenceContractTest {
 
 The SQL assertion about history means only the selection-table `method_id` gets a foreign key. The historical snapshot `method_id` must remain a scalar identity.
 
-- [ ] **Step 2: Run the focused contract and verify RED**
+- [x] **Step 2: Run the focused contract and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -94,7 +103,7 @@ mvn test -Dtest=DinnerHouseholdRecipeMenuPersistenceContractTest
 
 Expected: FAIL because V7 and the new entity properties do not exist.
 
-- [ ] **Step 3: Add the complete V7 migration**
+- [x] **Step 3: Add the complete V7 migration**
 
 ```sql
 ALTER TABLE dinner_menu_selections
@@ -117,7 +126,7 @@ ALTER TABLE dinner_record_dish_snapshots
 
 Do not backfill old record JSON and do not add a snapshot-to-method foreign key.
 
-- [ ] **Step 4: Map the V7 columns in Java**
+- [x] **Step 4: Map the V7 columns in Java**
 
 Use exact MyBatis field names:
 
@@ -141,7 +150,7 @@ private Integer servings;
 
 Add ordinary getters/setters following the existing entity style.
 
-- [ ] **Step 5: Run GREEN and commit the schema contract**
+- [x] **Step 5: Run GREEN and commit the schema contract**
 
 ```bash
 cd ../osheeep-server
@@ -178,7 +187,7 @@ Expected: focused tests PASS and only the four listed paths are committed.
 - Household published aggregate is catalog-valid only when every existing publication rule still passes: required scalars, at least one required ingredient, one named active default method, a named cooking style, 1–12 nonblank steps and one approved image.
 - System recipe may have `defaultMethod = null` and continues using `image_path`.
 
-- [ ] **Step 1: Write failing assembler and serialization tests**
+- [x] **Step 1: Write failing assembler and serialization tests**
 
 Cover all of these cases in `DinnerRecipeCatalogAssemblerTest`:
 
@@ -226,7 +235,7 @@ Extend controller JSON assertions:
 .andExpect(jsonPath("$.data[0].defaultMethod.steps").doesNotExist());
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -235,7 +244,7 @@ mvn test -Dtest=DinnerRecipeCatalogAssemblerTest,RecipeDraftValidatorTest,Dinner
 
 Expected: FAIL because the summary DTO, assembler, method-name/style publication checks and response fields do not exist.
 
-- [ ] **Step 3: Add the summary DTO and exact response shape**
+- [x] **Step 3: Add the summary DTO and exact response shape**
 
 ```java
 public record RecipeMethodSummaryResponse(
@@ -267,7 +276,7 @@ public record RecipeResponse(
 
 Keep both current convenience shapes so Task 2 compiles before Task 3: the six-argument constructor normalizes to system/version-one/null-method/empty-ingredients/null-match, and the existing eight-argument `(basic fields, ingredients, match)` constructor normalizes to system/version-one/null-method while preserving those last two values. Do not reuse `RecipeMethodResponse`, because it contains steps.
 
-- [ ] **Step 4: Close the publication-rule gap for method metadata**
+- [x] **Step 4: Close the publication-rule gap for method metadata**
 
 Extend `RecipeDraftValidator.validateMethod` before catalog work:
 
@@ -285,7 +294,7 @@ Keep draft save fields nullable; this changes only publication completeness. Upd
 - change `DinnerRecipePublishTransactionTest.completeResponse()` from null method metadata to `"家常炒"` and `"炒"`, so success, image-validation and duplicate-key cases continue reaching their intended boundaries;
 - replace `DinnerRecipePublishSnapshotLoaderTest.moderationTextLimitFailureIsReturnedAsValidationFailure()` with an overlong-method-name test that expects `RecipeValidationException` before `imageAssetService.requireApproved`. The validator's 40/32/12×160 limits make a >2500-character moderation payload unreachable through a valid publication snapshot; keep the direct 2500/2501 defensive boundary tests in `RecipeModerationTextBuilderTest` unchanged.
 
-- [ ] **Step 5: Implement one-query-per-table catalog assembly**
+- [x] **Step 5: Implement one-query-per-table catalog assembly**
 
 The public boundary is:
 
@@ -315,7 +324,7 @@ Implementation rules:
 7. For each household row, construct a full in-memory `RecipePublishSnapshot` from the entity, sorted ingredients, method and steps, then call the same `RecipeDraftValidator.validate(snapshot)` used by publication. Also require the asset ID to resolve in the approved-image map. Only an empty issue list plus approved `listUrl` produces a `CatalogEntry`.
 8. Omit a damaged household entry and log only IDs plus issue field names; never log recipe name, step, ingredient name or other user text.
 
-- [ ] **Step 6: Run GREEN, repair constructor fixtures and commit**
+- [x] **Step 6: Run GREEN, repair constructor fixtures and commit**
 
 ```bash
 cd ../osheeep-server
@@ -348,7 +357,7 @@ git commit -m "feat: assemble household recipe catalog entries"
 - Adds only current-household `HOUSEHOLD + PUBLISHED` entries to the same ordered result.
 - Excludes other household, draft, archived and damaged published aggregates before client delivery.
 
-- [ ] **Step 1: Extend service tests for visibility, shared matching and order**
+- [x] **Step 1: Extend service tests for visibility, shared matching and order**
 
 Add explicit test rows for a system recipe, current household published recipe, other-household published recipe, current draft and current archived recipe. The mapper stub should only return rows permitted by the query; capture the wrapper and assert its SQL segment includes status plus the system/current-household OR boundary.
 
@@ -386,7 +395,7 @@ void discoversCurrentHouseholdRecipesWithTheSameMatchingAndSorting() {
 
 Also retain and generalize the existing tests for include-over-inventory, exclude-over-include, `onlyCookable`, null quantities and order by status → percent descending → minutes → ID.
 
-- [ ] **Step 2: Run the service/controller tests and verify RED**
+- [x] **Step 2: Run the service/controller tests and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -395,7 +404,7 @@ mvn test -Dtest=DinnerRecipeServiceTest,DinnerRecipeControllerTest
 
 Expected: FAIL because `DinnerRecipeService` still queries only system recipes and does not use the catalog assembler.
 
-- [ ] **Step 3: Inject the assembler and replace the visibility query**
+- [x] **Step 3: Inject the assembler and replace the visibility query**
 
 Replace the member-only lookup with `DinnerRecipeAuthorizer.requireMembership(userId)` so inactive/deleted households are rejected consistently. Inject that authorizer and `DinnerRecipeCatalogAssembler`; after this refactor the service no longer owns ingredient batch queries. Use one predicate with a common published status:
 
@@ -419,7 +428,7 @@ Build responses only from recipes whose IDs remain in `catalog`. Match requireme
 
 `listSystemRecipes()` remains system-only but must construct the expanded `RecipeResponse` with `scope`, `version=1` and null method.
 
-- [ ] **Step 4: Run focused and adjacent regression tests**
+- [x] **Step 4: Run focused and adjacent regression tests**
 
 ```bash
 cd ../osheeep-server
@@ -429,7 +438,7 @@ git diff --check
 
 Expected: PASS; query, shared match and stable order assertions all hold.
 
-- [ ] **Step 5: Commit unified discovery**
+- [x] **Step 5: Commit unified discovery**
 
 ```bash
 cd ../osheeep-server
@@ -455,7 +464,7 @@ git commit -m "feat: discover published household recipes"
 - Saves the current aggregate version and unique active default method ID for current-household recipes.
 - Produces `MenuDishResponse.scope`, `recipeVersion` and nullable `method` from saved selection identity.
 
-- [ ] **Step 1: Write failing menu-save and menu-read tests**
+- [x] **Step 1: Write failing menu-save and menu-read tests**
 
 Add service cases for:
 
@@ -499,7 +508,7 @@ Extend the controller contract to assert the request has not changed and respons
 .andExpect(jsonPath("$.data.dishes[0].method.steps").doesNotExist());
 ```
 
-- [ ] **Step 2: Run menu tests and verify RED**
+- [x] **Step 2: Run menu tests and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -508,7 +517,7 @@ mvn test -Dtest=DinnerMenuServiceTest,DinnerMenuControllerTest
 
 Expected: FAIL because validation is system-only, selection rows lack identity and menu DTO lacks the new fields.
 
-- [ ] **Step 3: Expand the menu response DTO**
+- [x] **Step 3: Expand the menu response DTO**
 
 ```java
 public record MenuDishResponse(
@@ -528,7 +537,7 @@ public record MenuDishResponse(
 
 Update existing controller fixtures explicitly; do not make the HTTP request accept scope, version or method.
 
-- [ ] **Step 4: Return resolved metadata from validation and persist it**
+- [x] **Step 4: Return resolved metadata from validation and persist it**
 
 Replace the boolean-only validator with a concrete private method named `validateRecipes` that accepts `(List<Long> recipeIds, Long householdId)` and returns `Map<Long, ValidatedRecipe>`. Define this exact validated value type:
 
@@ -560,7 +569,7 @@ selection.setRecipeVersion(validated.selectedVersion());
 selection.setMethodId(validated.method() == null ? null : validated.method().id());
 ```
 
-- [ ] **Step 5: Assemble menu dishes from saved identities in batches**
+- [x] **Step 5: Assemble menu dishes from saved identities in batches**
 
 Group selection rows by `recipeId` and derive exactly one identity per group:
 
@@ -574,7 +583,7 @@ Validate each resolved identity before producing a response: system rows require
 
 Preserve selector source/count logic and selected ID ordering.
 
-- [ ] **Step 6: Run GREEN, adjacent concurrency tests and commit**
+- [x] **Step 6: Run GREEN, adjacent concurrency tests and commit**
 
 ```bash
 cd ../osheeep-server
@@ -608,7 +617,7 @@ git commit -m "feat: preserve recipe identity in dinner menus"
 - Null/blank historical JSON reads as an empty immutable list.
 - `RecordDishResponse` no longer shares menu response semantics and normalizes all pre-V7 records.
 
-- [ ] **Step 1: Write codec and old-record RED tests**
+- [x] **Step 1: Write codec and old-record RED tests**
 
 ```java
 @Test
@@ -634,7 +643,7 @@ void readsNullLegacyJsonAsEmptyLists() {
 
 In `DinnerRecordServiceTest`, create a pre-V7 snapshot with every new field null and assert detail output is exactly system/version-one/null-method/empty-ingredients without mapper calls to recipe, method, ingredient or image tables.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -643,7 +652,7 @@ mvn test -Dtest=DinnerRecordSnapshotJsonCodecTest,DinnerRecordServiceTest,Dinner
 
 Expected: FAIL because the codec and expanded record DTOs do not exist.
 
-- [ ] **Step 3: Add immutable snapshot response records**
+- [x] **Step 3: Add immutable snapshot response records**
 
 ```java
 public record RecordMethodStepSnapshotResponse(String instruction, int sortOrder) { }
@@ -684,7 +693,7 @@ public record RecordDishResponse(
 ) { }
 ```
 
-- [ ] **Step 4: Implement Jackson codec with deterministic ordering**
+- [x] **Step 4: Implement Jackson codec with deterministic ordering**
 
 `DinnerRecordSnapshotJsonCodec` is a Spring component that receives the application `ObjectMapper`. It must sort defensive copies before serialization and return `List.copyOf(parsedValues)` after parsing. Use separate `TypeReference<List<RecordMethodStepSnapshotResponse>>` and `TypeReference<List<RecordIngredientSnapshotResponse>>`; wrap malformed stored JSON in a non-user-facing `IllegalStateException("Invalid dinner record snapshot JSON", cause)` so a corrupted record fails safely.
 
@@ -696,7 +705,7 @@ public String writeIngredients(List<RecordIngredientSnapshotResponse> values) {
 }
 ```
 
-- [ ] **Step 5: Make record detail read snapshots only and normalize legacy rows**
+- [x] **Step 5: Make record detail read snapshots only and normalize legacy rows**
 
 Inside the existing snapshot stream mapping:
 
@@ -724,7 +733,7 @@ RecordMethodSnapshotResponse method = methodAbsent ? null
 
 A partial method snapshot is corrupt stored history and must fail safely instead of emitting a DTO that violates the wire contract. Always return `codec.readIngredients(snapshot.getIngredientsJson())`. Do not inject or query recipe/method/image mappers for detail reconstruction.
 
-- [ ] **Step 6: Run GREEN and commit the read contract**
+- [x] **Step 6: Run GREEN and commit the read contract**
 
 ```bash
 cd ../osheeep-server
@@ -757,7 +766,7 @@ git commit -m "feat: read immutable dinner dish snapshots"
 - Returns ordered `SnapshotDraft`s with selectors, basic fields, resolved image, method and ingredient snapshot values.
 - Throws `DINNER_RECIPE_INVALID` for any missing/cross-household/cross-method/version-inconsistent aggregate.
 
-- [ ] **Step 1: Write assembler validation tests and service atomicity tests**
+- [x] **Step 1: Write assembler validation tests and service atomicity tests**
 
 Required assembler cases:
 
@@ -788,7 +797,7 @@ verifyNoInteractions(recordMapper, snapshotMapper);
 
 In service tests, make `snapshotAssembler.assemble(householdId, selections)` throw and assert record/action/menu writes never occur. Make the second `snapshotMapper.insert` throw and assert the exception escapes; the real rollback is proved in Task 7 through Spring/MySQL, not by Mockito pretending to run transactions.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 ```bash
 cd ../osheeep-server
@@ -797,7 +806,7 @@ mvn test -Dtest=DinnerRecordSnapshotAssemblerTest,DinnerRecordServiceTest
 
 Expected: FAIL because completion still loads only recipe basics and creates the record before aggregate validation.
 
-- [ ] **Step 3: Implement the batch snapshot assembler**
+- [x] **Step 3: Implement the batch snapshot assembler**
 
 Use this boundary:
 
@@ -840,7 +849,7 @@ Load in at most five batch operations: recipes, joined ingredient rows, referenc
 
 For household images use `ImageAssetResponse.listUrl()`. Never use `detailUrl`, `sourcePageUrl` or `originalFileUrl` for the snapshot.
 
-- [ ] **Step 4: Move aggregate loading ahead of the record insert and write every field**
+- [x] **Step 4: Move aggregate loading ahead of the record insert and write every field**
 
 In `DinnerRecordService.complete`, preserve current ordering for membership, household, menu lock, existing-record idempotency, version and confirmed state. Then:
 
@@ -869,7 +878,7 @@ snapshot.setIngredientsJson(codec.writeIngredients(draft.ingredients()));
 
 Keep record inserts, all snapshot inserts, menu completion and COMPLETE action in the existing `@Transactional` method. Do not catch a snapshot insertion failure. Keep the duplicate-record winner path, but require a non-null winner before returning.
 
-- [ ] **Step 5: Run GREEN and commit completion snapshots**
+- [x] **Step 5: Run GREEN and commit completion snapshots**
 
 ```bash
 cd ../osheeep-server
@@ -899,7 +908,7 @@ git commit -m "feat: snapshot household recipes on completion"
 - Proves tampered association/version fails before record creation and snapshot insert failure rolls back.
 - Never runs Flyway clean against the long-lived `.env.local` test catalog; it drops only catalogs created and tracked by the current test run, and never connects to or copies production data.
 
-- [ ] **Step 1: Write the guarded migration-path IT and observe RED**
+- [x] **Step 1: Write the guarded migration-path IT and observe RED**
 
 Reuse `DinnerCustomRecipeTestDatabaseSafetyInitializer` semantics for the base connection. Before any catalog DDL, fixture write or migration, additionally require an explicit ephemeral-catalog opt-in and a loopback JDBC host:
 
@@ -940,18 +949,31 @@ Run and expect RED:
 
 ```bash
 cd ../osheeep-server
-set -a
-source .env.local
-set +a
-export OSHEEEP_DB_NAME="$OSHEEEP_DB_TEST_NAME"
+export OSHEEEP_DB_HOST=127.0.0.1
+export OSHEEEP_DB_PORT=33307
+export OSHEEEP_DB_NAME=osheeep_it_v7
+export OSHEEEP_DB_TEST_NAME=osheeep_it_v7
 export OSHEEEP_ALLOW_EPHEMERAL_DATABASES=true
+export OSHEEEP_DB_USERNAME=root
+export OSHEEEP_DB_PASSWORD=osheeep-local-it-only
+export OSHEEEP_JWT_SECRET=osheeep-local-it-jwt-secret-at-least-32-bytes
+export OSHEEEP_REDIS_HOST=127.0.0.1
+export OSHEEEP_REDIS_PORT=6379
+export OSHEEEP_REDIS_PASSWORD=
+export OSHEEEP_RABBITMQ_HOST=127.0.0.1
+export OSHEEEP_RABBITMQ_PORT=5672
+export OSHEEEP_RABBITMQ_USERNAME=guest
+export OSHEEEP_RABBITMQ_PASSWORD=guest
+export OSHEEEP_RABBITMQ_VHOST=/
+export OSHEEEP_WECHAT_APP_ID=osheeep-local-it-app
+export OSHEEEP_WECHAT_APP_SECRET=osheeep-local-it-app-secret
 mvn test -Dtest=DinnerEphemeralCatalogHarnessTest
 mvn test -Dtest=DinnerHouseholdRecipeMenuMigrationMySqlIT -Dspring.profiles.active=local
 ```
 
-Expected: FAIL before implementation because the harness/class/path assertions do not exist or V7 behavior is incomplete. If any base, host, opt-in, created-name or active-catalog gate fails, stop; never relax it merely to obtain a RED.
+Run this only after starting a disposable MySQL 8 instance whose credentials and loopback port exactly match the explicit values above. Do not `source .env.local`. Expected: FAIL before implementation because the harness/class/path assertions do not exist or V7 behavior is incomplete. If any base, host, opt-in, created-name or active-catalog gate fails, stop; never relax it merely to obtain a RED.
 
-- [ ] **Step 2: Implement all three migration paths and legacy assertions**
+- [x] **Step 2: Implement all three migration paths and legacy assertions**
 
 For each catalog-specific Flyway instance set `defaultSchema` and `schemas` to only that exact generated catalog. Its actual data source must independently return the same catalog before `migrate()`. Production-shaped V4 fixture assertions, executed through the `v4` catalog's `JdbcTemplate`, must include:
 
@@ -970,7 +992,7 @@ assertThat(jdbcTemplate.queryForObject(
 
 Assert the selection method foreign key exists and the historical method column has no foreign key.
 
-- [ ] **Step 3: Extend the existing two-user MySQL vertical slice**
+- [x] **Step 3: Extend the existing two-user MySQL vertical slice**
 
 Update its startup assertion from successful V6 to successful V7. Create two test-owned `APPROVED` image assets with unique generated SHA-256 values and immutable list/detail object keys; publish the family recipe with the first asset. Track both IDs and delete them in teardown only after selections/methods/recipe rows are gone. Never update the shared V6 seed asset. Then:
 
@@ -1004,23 +1026,36 @@ doAnswer(invocation -> {
 
 Because V7 makes methods referenced by menu selections, fix the integration test's own cleanup to delete `dinner_menu_selections` before `dinner_recipe_methods`. Delete the two test-owned image assets after recipes, then retain the existing baseline count assertion to prove no asset pollution. Production `DinnerAccountCleanupService` already uses that order and `DinnerAccountCleanupServiceTest` already locks it; run that existing regression test without editing either file.
 
-- [ ] **Step 4: Run migration IT then business-flow IT sequentially**
+- [x] **Step 4: Run migration IT then business-flow IT sequentially**
 
 ```bash
 cd ../osheeep-server
-set -a
-source .env.local
-set +a
-export OSHEEEP_DB_NAME="$OSHEEEP_DB_TEST_NAME"
+export OSHEEEP_DB_HOST=127.0.0.1
+export OSHEEEP_DB_PORT=33307
+export OSHEEEP_DB_NAME=osheeep_it_v7
+export OSHEEEP_DB_TEST_NAME=osheeep_it_v7
 export OSHEEEP_ALLOW_EPHEMERAL_DATABASES=true
+export OSHEEEP_DB_USERNAME=root
+export OSHEEEP_DB_PASSWORD=osheeep-local-it-only
+export OSHEEEP_JWT_SECRET=osheeep-local-it-jwt-secret-at-least-32-bytes
+export OSHEEEP_REDIS_HOST=127.0.0.1
+export OSHEEEP_REDIS_PORT=6379
+export OSHEEEP_REDIS_PASSWORD=
+export OSHEEEP_RABBITMQ_HOST=127.0.0.1
+export OSHEEEP_RABBITMQ_PORT=5672
+export OSHEEEP_RABBITMQ_USERNAME=guest
+export OSHEEEP_RABBITMQ_PASSWORD=guest
+export OSHEEEP_RABBITMQ_VHOST=/
+export OSHEEEP_WECHAT_APP_ID=osheeep-local-it-app
+export OSHEEEP_WECHAT_APP_SECRET=osheeep-local-it-app-secret
 mvn test -Dtest=DinnerEphemeralCatalogHarnessTest
 mvn test -Dtest=DinnerHouseholdRecipeMenuMigrationMySqlIT -Dspring.profiles.active=local
 mvn test -Dtest=DinnerCustomRecipeMySqlIT -Dspring.profiles.active=local
 ```
 
-Expected: all three commands PASS; logs name only the guarded base catalog and current-run generated catalogs; the base Flyway history records V7 and no generated catalog remains. Do not combine the ITs into a parallel test run: one owns ephemeral catalog DDL while the other owns business fixtures in the guarded base catalog.
+Run this only against a disposable MySQL 8 instance matching those explicit loopback values, and remove the instance afterward. Never `source .env.local` for these write tests. Expected: all three commands PASS; logs name only the guarded base catalog and current-run generated catalogs; the base Flyway history records V7 and no generated catalog remains. Do not combine the ITs into a parallel test run: one owns ephemeral catalog DDL while the other owns business fixtures in the guarded base catalog.
 
-- [ ] **Step 5: Run full backend verification and update measured API documentation**
+- [x] **Step 5: Run full backend verification and update measured API documentation**
 
 ```bash
 cd ../osheeep-server
@@ -1040,7 +1075,7 @@ Update `docs/api-contract.md` with:
 - the immutable approved-list-image URL rule;
 - explicit wording that local dedicated-MySQL evidence is not production Flyway, deployment or release evidence.
 
-- [ ] **Step 6: Commit MySQL evidence and API contract**
+- [x] **Step 6: Commit MySQL evidence and API contract**
 
 ```bash
 cd ../osheeep-server
@@ -1076,7 +1111,7 @@ git commit -m "test: verify household recipe dinner flow"
 - Produces pure, deterministic labels for discovery, tonight and history; pages only bind prepared values.
 - Preserves all service URLs and request payloads.
 
-- [ ] **Step 1: Write compile-time/wire and view-model RED tests**
+- [x] **Step 1: Write compile-time/wire and view-model RED tests**
 
 Add literal fixtures that must typecheck:
 
@@ -1127,7 +1162,7 @@ expect(toRecordDishPresentation(snapshotDish).ingredients[0].amountLabel).toBe(
 expect(toRecordDishPresentation(legacyDish).showSnapshotDetails).toBe(false);
 ```
 
-- [ ] **Step 2: Run focused tests/typecheck and verify RED**
+- [x] **Step 2: Run focused tests/typecheck and verify RED**
 
 ```bash
 npm test -- --runInBand tests/recipe-wire-contract.test.ts tests/recipe-discovery.test.ts tests/recipe-discovery-page.test.ts tests/menu-state.test.ts tests/record-detail.test.ts tests/menu-service.test.ts
@@ -1136,7 +1171,7 @@ npm run typecheck
 
 Expected: FAIL because new fields/types/helpers are absent.
 
-- [ ] **Step 3: Add exact wire types**
+- [x] **Step 3: Add exact wire types**
 
 In `types/recipe.ts`:
 
@@ -1182,7 +1217,7 @@ In `types/record.ts`, define independent `RecordMethodStepSnapshot`, `RecordMeth
 
 Update every existing typed recipe/menu fixture in `recipe-discovery.test.ts`, `recipe-discovery-page.test.ts` and `menu-state.test.ts` with explicit system compatibility values (`scope: 'SYSTEM'`, `version`/`recipeVersion: 1`, null method). Do not make the new server keys optional merely to avoid fixture repairs.
 
-- [ ] **Step 4: Implement pure presentation helpers**
+- [x] **Step 4: Implement pure presentation helpers**
 
 Extend `RecipeCardView` with:
 
@@ -1207,7 +1242,7 @@ export const toMenuDishPresentation = (dish: MenuDish) => ({
 
 Add `record-detail.ts` with `formatSnapshotAmount` and `toRecordDishPresentation`. `quantity === null` maps to `适量`; otherwise use `${quantity}${unit}`. Set `showSnapshotDetails` only when method exists or ingredients are nonempty, so legacy rows never render empty sections.
 
-- [ ] **Step 5: Run GREEN and prove service requests are unchanged**
+- [x] **Step 5: Run GREEN and prove service requests are unchanged**
 
 ```bash
 npm test -- --runInBand tests/recipe-wire-contract.test.ts tests/recipe-discovery.test.ts tests/recipe-discovery-page.test.ts tests/menu-state.test.ts tests/record-detail.test.ts tests/menu-service.test.ts
@@ -1218,7 +1253,7 @@ git diff --check
 
 `tests/menu-service.test.ts` must still assert `saveSelections([1, 14], 3)` sends only `{recipeIds:[1,14], version:3}`.
 
-- [ ] **Step 6: Commit wire types and view models**
+- [x] **Step 6: Commit wire types and view models**
 
 ```bash
 git add miniprogram/types/recipe.ts miniprogram/types/menu.ts miniprogram/types/record.ts \
@@ -1247,7 +1282,7 @@ git commit -m "feat: model household recipe dinner snapshots"
 - Keeps 409 explicit retry semantics.
 - On `DINNER_RECIPE_INVALID`, refreshes recipes and today menu, clears the invalid pending item and does not leak backend ownership/status details.
 
-- [ ] **Step 1: Run the required product-design checkpoint before visual edits**
+- [x] **Step 1: Run the required product-design checkpoint before visual edits**
 
 Invoke `product-design:index` and route this as a targeted evolution of the existing approved find-recipes page, not a redesign. Inspect:
 
@@ -1257,7 +1292,7 @@ Invoke `product-design:index` and route this as a targeted evolution of the exis
 
 The outcome must preserve hierarchy, spacing and orange add action while selecting one unobtrusive text-tag treatment. If the skill identifies a material interaction change beyond the confirmed spec, pause and return to design review.
 
-- [ ] **Step 2: Write page/error RED tests**
+- [x] **Step 2: Write page/error RED tests**
 
 Extend structure assertions for both card forms:
 
@@ -1288,7 +1323,7 @@ expect(app.getTodayMenu).toHaveBeenCalledTimes(2);
 
 Retain the existing 409 test proving `pendingRecipeId=14`, latest menu refresh and no automatic second PUT.
 
-- [ ] **Step 3: Run focused tests and verify RED**
+- [x] **Step 3: Run focused tests and verify RED**
 
 ```bash
 npm test -- --runInBand tests/menu-errors.test.ts tests/recipe-discovery.test.ts tests/recipe-discovery-page.test.ts
@@ -1296,7 +1331,7 @@ npm test -- --runInBand tests/menu-errors.test.ts tests/recipe-discovery.test.ts
 
 Expected: FAIL on absent labels/error recovery while existing selection tests continue to execute.
 
-- [ ] **Step 4: Implement label markup, accessibility and CSS**
+- [x] **Step 4: Implement label markup, accessibility and CSS**
 
 Place the label next to the recipe name in both card variants:
 
@@ -1309,7 +1344,7 @@ Place the label next to the recipe name in both card variants:
 
 Use the same class for rows. Keep it text-based, allow title line wrapping without shrinking the action, and do not use an attribute selector in WXSS. Set button `aria-label` from prepared `ariaName` plus selected/retry state.
 
-- [ ] **Step 5: Implement invalid-recipe recovery without auto replay**
+- [x] **Step 5: Implement invalid-recipe recovery without auto replay**
 
 Add exact mapping:
 
@@ -1319,7 +1354,7 @@ DINNER_RECIPE_INVALID: '这道家庭菜谱已不可用，请刷新后重试',
 
 In the non-409 catch branch, detect this code, clear `pendingRecipeId`, refresh recipes with the current filters and fetch/apply the latest menu. Use existing request tokens so stale responses cannot overwrite newer state. After refresh, set the exact action message; because `reloadRecipes()` currently clears `actionMessage`, do not set the final message until refresh settles. Never call `saveSelections` again automatically.
 
-- [ ] **Step 6: Run GREEN, static checks and commit**
+- [x] **Step 6: Run GREEN, static checks and commit**
 
 ```bash
 npm test -- --runInBand tests/menu-errors.test.ts tests/recipe-discovery.test.ts tests/recipe-discovery-page.test.ts tests/menu-service.test.ts
@@ -1366,7 +1401,7 @@ git commit -m "feat: add household recipes from discovery"
 - Record detail shows household tag, snapshot method/style/ordered steps and snapshot ingredients; old records keep the compact basic card.
 - Proves native 375/390/430 layout and current full automated baselines without claiming upload or production release.
 
-- [ ] **Step 1: Write tonight and record page RED tests**
+- [x] **Step 1: Write tonight and record page RED tests**
 
 `tests/tonight-page.test.ts` should capture the page definition like `recipe-discovery-page.test.ts` and assert:
 
@@ -1386,7 +1421,7 @@ git commit -m "feat: add household recipes from discovery"
 
 Add WXML/WXSS structure assertions for headings, text labels, safe-area padding, no horizontal overflow and `88rpx` action targets.
 
-- [ ] **Step 2: Run page tests and verify RED**
+- [x] **Step 2: Run page tests and verify RED**
 
 ```bash
 npm test -- --runInBand tests/tonight-page.test.ts tests/record-detail-page.test.ts tests/menu-state.test.ts tests/record-detail.test.ts
@@ -1394,7 +1429,7 @@ npm test -- --runInBand tests/tonight-page.test.ts tests/record-detail-page.test
 
 Expected: FAIL because pages still bind raw menu dishes and history only shows basic image/name cards.
 
-- [ ] **Step 3: Bind tonight page to the pure presentation model**
+- [x] **Step 3: Bind tonight page to the pure presentation model**
 
 Replace its local duplicate mapping with imported `toMenuDishPresentation`. Under the name render:
 
@@ -1406,7 +1441,7 @@ Replace its local duplicate mapping with imported `toMenuDishPresentation`. Unde
 
 Use a light olive/neutral text treatment for `.dish-context`; keep source labels and `dish-card--both` unchanged. Household method is guaranteed by the server, but the client still safely omits an empty context rather than displaying “未知做法”.
 
-- [ ] **Step 4: Build record detail from snapshot presentation only**
+- [x] **Step 4: Build record detail from snapshot presentation only**
 
 On load:
 
@@ -1428,7 +1463,7 @@ For each dish, retain image/name/source and add:
 
 Prefer one-column detailed-content cards over the current two-column image grid when snapshot details exist; legacy cards may remain compact. Use the approved warm-white/olive/orange system, not a new visual direction.
 
-- [ ] **Step 5: Run page GREEN and full automated verification**
+- [x] **Step 5: Run page GREEN and full automated verification**
 
 ```bash
 npm test -- --runInBand tests/tonight-page.test.ts tests/record-detail-page.test.ts tests/menu-state.test.ts tests/record-detail.test.ts
@@ -1449,9 +1484,9 @@ git diff --check
 
 Expected: all commands exit 0. Record exact suite/test counts in the QA report and handoff; never copy stale counts from this plan.
 
-- [ ] **Step 6: Run native same-state visual and interaction QA**
+- [x] **Step 6: Run native three-viewport visual/interaction QA and direction comparison**
 
-Use the Product Design audit workflow on the implemented pages. In WeChat Developer Tools, use the same household recipe, inventory, menu source and completion snapshot at 375, 390 and 430px. Capture all listed images and compare the 390px implementation against the approved existing page direction under the same state.
+Use the Product Design audit workflow on the implemented pages. In WeChat Developer Tools, keep one fixed fixture for each implemented page across 375, 390 and 430px, then capture all listed images. Compare the 390px implementation against the approved existing page direction. The available references use different data states, so the comparison is evidence for preserved visual hierarchy, tokens and layout direction only—not a same-state, pixel-level or exact-spacing claim. Record that limitation explicitly in the QA report.
 
 Verify:
 
@@ -1467,7 +1502,7 @@ Verify:
 
 Have an independent review classify findings P0–P3. Fix every P0/P1/P2, rerun affected automation and replace obsolete captures before marking this step complete.
 
-- [ ] **Step 7: Update QA, handoff and measured plan state**
+- [x] **Step 7: Update QA, handoff and measured plan state**
 
 `household-recipe-menu-qa.md` records viewport, fixture, reference, capture, findings, fixes, retest and final Errors/Problems counts. `docs/HANDOFF.md` records:
 
@@ -1479,7 +1514,7 @@ Have an independent review classify findings P0–P3. Fix every P0/P1/P2, rerun 
 
 Tick plan checkboxes only for steps with current evidence.
 
-- [ ] **Step 8: Commit page implementation and verified QA/handoff separately**
+- [x] **Step 8: Commit page implementation and verified QA/handoff separately**
 
 Implementation commit:
 
@@ -1500,7 +1535,7 @@ git add docs/HANDOFF.md \
 git commit -m "docs: verify household recipe dinner flow"
 ```
 
-- [ ] **Step 9: Verify both repositories and report the continuation point**
+- [x] **Step 9: Verify both repositories and report the continuation point**
 
 ```bash
 git status -sb

@@ -67,11 +67,11 @@ Expected: FAIL because V8 and the fields do not exist.
 Implement the exact model from the design:
 
 - household `version >= 1`, `invite_revision >= 0` and nullable `admin_changed_at`;
-- membership lifecycle fields, application-Clock UTC `joined_at/history_visible_from/ended_at`, `updated_at` default/on-update and exact grouped check constraints;
+- membership lifecycle fields, application-Clock UTC `joined_at/history_visible_from/ended_at`, `ended_by → users` FK, `updated_at` default/on-update and exact grouped check constraints;
 - `active_user_id`, `active_owner_household_id`, `active_seat_no` generated columns;
 - unique ACTIVE user/owner/seat keys;
 - deterministic OWNER/seat backfill with explicit precondition failure for zero or more-than-two-member legacy households;
-- invitation `consumed_at/consumed_by/revocation_reason/open_household_id`;
+- invitation `consumed_at/consumed_by/revocation_reason/open_household_id` with `consumed_by → users` FK;
 - deterministic pre-index cleanup that revokes every two-member legacy open invite, keeps at most the newest eligible one-member invite and marks the rest `MIGRATION_SUPERSEDED`;
 - consumed/revoked paired-state checks and legacy revoke-reason backfill;
 - exact `dinner_household_operations` columns/checks from the design: users FK only on actor, scalar household/actor-membership/target IDs, four operation types, UUID/HMAC widths, schema version 1, `{actorHasHousehold}` JSON payload, Clock-written UTC timestamps with exact 14-day expiry, actor/key uniqueness and `(expires_at,id)` cleanup index.

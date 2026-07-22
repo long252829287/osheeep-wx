@@ -181,6 +181,8 @@ V1–V7 保持不可变。新增 `V8__add_household_management.sql`。
 
 检查约束精确定义为：role 只能是 `OWNER/MEMBER`；status 只能是 `ACTIVE/LEFT/REMOVED`；seat 只能是 1/2；version 至少为 1；ACTIVE 行的 `ended_at/ended_by/end_reason` 必须全空，结束行三者必须全非空；end reason 只能是 `SELF_LEFT/OWNER_REMOVED`。生成列若映射到 MyBatis 实体，必须用 never-write 策略禁止 insert/update 写入。“活跃家庭至少一个 OWNER”由家庭锁内的事务保证。账号注销在同一事务中硬删除该用户全部 membership 行，因此不增加持久化 `ACCOUNT_DELETED` reason。V8 新写的 `joined_at/history_visible_from/ended_at` 全部由同一个注入 `Clock` 显式写 UTC；不再依赖数据库 session 时区生成成员生命周期时间。
 
+`ended_by` 通过外键引用会保留但被去标识化的 `users(id)`；账号注销不物理删除 user 行，因此历史结束者引用不会阻止注销或暴露原身份。
+
 结束字段使用一个分组约束，不允许半结束状态：
 
 ```sql
@@ -201,7 +203,7 @@ CHECK (
 
 ### 7.3 `dinner_invite_codes`
 
-新增 `consumed_at`、`consumed_by`、`revocation_reason`，以及仅在未消费且未撤销时有值的 `open_household_id` 生成列和唯一索引。`consumed_at/consumed_by` 必须同时为空或同时有值；一行不能同时 consumed 和 revoked；`revoked_at/revocation_reason` 必须成对，reason 限定为 `LEGACY_REVOKED/MIGRATION_SUPERSEDED/REFRESHED/MEMBER_REVOKED/MEMBERSHIP_CHANGED`，旧 revoked 行回填 `LEGACY_REVOKED`。迁移时，两名成员家庭撤销全部 open 行；一名成员家庭按“未过期优先、再按 `created_at DESC, id DESC`”保留至多一条，其他行写 `MIGRATION_SUPERSEDED`；若全已过期，可保留最新一条供管理页显示 EXPIRED，再建立约束。
+新增 `consumed_at`、`consumed_by`、`revocation_reason`，以及仅在未消费且未撤销时有值的 `open_household_id` 生成列和唯一索引。`consumed_by` 引用 `users(id)`；`consumed_at/consumed_by` 必须同时为空或同时有值；一行不能同时 consumed 和 revoked；`revoked_at/revocation_reason` 必须成对，reason 限定为 `LEGACY_REVOKED/MIGRATION_SUPERSEDED/REFRESHED/MEMBER_REVOKED/MEMBERSHIP_CHANGED`，旧 revoked 行回填 `LEGACY_REVOKED`。迁移时，两名成员家庭撤销全部 open 行；一名成员家庭按“未过期优先、再按 `created_at DESC, id DESC`”保留至多一条，其他行写 `MIGRATION_SUPERSEDED`；若全已过期，可保留最新一条供管理页显示 EXPIRED，再建立约束。
 
 ### 7.4 `dinner_household_operations`
 
@@ -228,7 +230,7 @@ expires_at               DATETIME(3) NOT NULL
 - `result_schema_version` CHECK 固定为 1；`result_household_version` 为空或至少为 1。v1 `result_payload` 精确为 `{ "actorHasHousehold": boolean }`，与 operation type/version 一起重建 `{ operationType, replayed, actorHasHousehold, householdVersion }`，不保存名称、成员 ID、微信信息或 token。
 - UUID v4 `idempotency_key` 与 HMAC-SHA256 hex `request_fingerprint` 都由应用严格验证；fingerprint 使用现有 dinner invite secret 和 `household-operation:v1:` 域分隔前缀，不另添生产密钥，也不包含微信 code、openid、邀请码明文或访问令牌。
 - `created_at` 由注入 `Clock` 写 UTC；`expires_at` 必须精确等于 `created_at + 14 days`。数据库 CHECK 至少要求 `expires_at > created_at`，服务测试与真实 MySQL IT 断言精确 14 天边界。
-- `uk_dinner_household_operations_actor_key(actor_id, idempotency_key)` 唯一；`idx_dinner_household_operations_expiry(expires_at, id)` 用于稳定分批清理。
+- `uk_dinner_household_operations_actor_key(actor_id, idempotency_key)` 唯一；`idx_dinner_household_operations_expiry(expires_at, id)` 用于稳定分批清理，另建 `(household_id,id)` 与 `(target_member_id,id)` 索引支持解散和注销清理。
 
 相同 actor/key 只有在操作类型、actor membership context、目标和请求指纹完全一致时才返回原成功结果；不同请求复用同一 key 返回 409。危险请求携带不可信但稳定的 `actorMembershipId` 并纳入指纹，首次执行仍必须在锁内证明它是 actor 当前 ACTIVE membership；这使退出/解散后的重放不依赖仍存在的家庭关系。只记录已成功提交的操作，重放窗口固定为 14 天。定时清理到期记录，并在新操作时做机会式清理；actor 注销时删除其操作，同时删除以该用户任一历史 membership 为 target 的记录。解散先删除该家庭旧操作，只保留本次 dissolution 结果至到期，不把操作表变成永久用户画像。
 
